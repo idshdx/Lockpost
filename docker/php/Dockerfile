@@ -1,4 +1,6 @@
-FROM php:8.1-fpm
+FROM php:8.3-fpm
+
+WORKDIR /var/www/app
 
 RUN apt-get -qq update && apt-get -qq -y install  \
   automake \
