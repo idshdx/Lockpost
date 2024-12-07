@@ -33,6 +33,7 @@ final class StudentController extends AbstractController
             $entityManager->persist($student);
             $entityManager->flush();
 
+            
             return $this->redirectToRoute('app_student_index', [], Response::HTTP_SEE_OTHER);
         }
 
