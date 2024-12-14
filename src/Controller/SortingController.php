@@ -17,16 +17,22 @@ class SortingController extends AbstractController
         $form = $this->createForm(SortingMethodType::class);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            $array = $form->get('arrayToSort')->getData();
+        if ($form->isSubmitted()) {
+            if ($form->isValid()) {
+                $array = $form->get('arrayToSort')->getData();
 
-            $array = explode(',', preg_replace('/\s+/', '', $array));
+                $array = explode(',', preg_replace('/\s+/', '', $array));
 
-            $sortedArray = $mergeSort->mergeSort($array);
-        
-            return $this->render('sortingMethods/results.html.twig', [
-                'sortedArray' => implode(', ', $sortedArray),
-            ]);
+                $sortedArray = $mergeSort->mergeSort($array);
+
+                return $this->render('sortingMethods/results.html.twig', [
+                    'sortedArray' => implode(', ', $sortedArray),
+                ]);
+            } else {
+                foreach ($form->get('arrayToSort')->getErrors(true, false) as $error) {
+                    $this->addFlash('error', $error->getMessage());
+                }
+            }
         }
 
         return $this->render('sortingMethods/index.html.twig', [
