@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Merge Sort{% endblock %}
+
+{% block body %}
+    <h1 class="text-center">Merge Sort</h1>
+
+    {% if sortedArray is defined and sortedArray is not empty %}
+        <div class="text-center mt-4">
+            <label class="badge bg-primary p-3 fs-4">
+                {{ sortedArray }}
+            </label>
+        </div>
+    {% else %}
+        <p class="text-center text-muted mt-4">No sorted array to display.</p>
+    {% endif %}
+{% endblock %}
