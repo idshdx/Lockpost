@@ -3,7 +3,7 @@
 namespace App\Controller;
 
 use App\Form\SortingMethodType;
-use App\Service\MergeSortService;
+use App\Service\SortingService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,9 +11,16 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class SortingController extends AbstractController
 {
-    #[Route('/sorting-methods/merge-sort', name: 'app_sortingMethods_mergeSort', methods: ['GET', 'POST'])]
-    public function mergeSort(Request $request, MergeSortService $mergeSort): Response
+    /**
+     * @throws \Exception
+     */
+    #[Route('/sorting-methods/{sortingMethodName}-sort', name: 'app_sortingMethods', methods: ['GET', 'POST'])]
+    public function mergeSort(string $sortingMethodName, Request $request, SortingService $sortingService): Response
     {
+        if (!in_array($sortingMethodName, $sortingService->getSortingMethodsArray())) {
+            throw new \Exception("Ruta aleasa nu exista!");
+        }
+
         $form = $this->createForm(SortingMethodType::class);
         $form->handleRequest($request);
 
@@ -23,10 +30,11 @@ class SortingController extends AbstractController
 
                 $array = explode(',', preg_replace('/\s+/', '', $array));
 
-                $sortedArray = $mergeSort->mergeSort($array);
+                $sortedArray = $sortingService->sort($array, $sortingMethodName);
 
                 return $this->render('sortingMethods/results.html.twig', [
                     'sortedArray' => implode(', ', $sortedArray),
+                    'sortingMethodName' => ucfirst($sortingMethodName)
                 ]);
             } else {
                 foreach ($form->get('arrayToSort')->getErrors(true, false) as $error) {
@@ -37,6 +45,7 @@ class SortingController extends AbstractController
 
         return $this->render('sortingMethods/index.html.twig', [
             'form' => $form->createView(),
+            'sortingMethodName' => ucfirst($sortingMethodName)
         ]);
     }
 }

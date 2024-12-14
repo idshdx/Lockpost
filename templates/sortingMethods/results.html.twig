@@ -1,9 +1,9 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Merge Sort{% endblock %}
+{% block title %}{{ sortingMethodName }} Sort{% endblock %}
 
 {% block body %}
-    <h1 class="text-center">Merge Sort</h1>
+    <h1 class="text-center">{{ sortingMethodName }} Sort</h1>
 
     {% if sortedArray is defined and sortedArray is not empty %}
         <div class="text-center mt-4">
