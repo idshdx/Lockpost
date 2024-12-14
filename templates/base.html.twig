@@ -37,18 +37,20 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{{ path('app_university_index') }}">Universitati</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ path('app_luckyNumber_get') }}">Lucky Controller</a>
-                </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" id="navbarDropdown" role="button"
                        data-bs-toggle="dropdown" aria-expanded="false">
                         Sorting Methods
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="{{ path('app_sortingMethods_mergeSort') }}">Merge Sort</a>
+                        <li><a class="dropdown-item" href="/sorting-methods/merge-sort">Merge Sort</a>
                         </li>
-                        <!-- Adăugați aici alte metode de sortare -->
+
+                        <li><a class="dropdown-item" href="/sorting-methods/quick-sort">Quick Sort</a>
+                        </li>
+
+                        <li><a class="dropdown-item" href="/sorting-methods/insertion-sort">Insertion Sort</a>
+                        </li>
                     </ul>
                 </li>
             </ul>
