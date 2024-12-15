@@ -13,6 +13,7 @@ class SortingService
     private const COUNTING = 'counting';
     private const INSERTION = 'insertion';
     private const FLIPPING = 'flipping';
+    private const HEAP = 'heap';
     private const MERGE = 'merge';
     private const QUICK = 'quick';
     private const RADIX = 'radix';
@@ -367,5 +368,58 @@ class SortingService
         }
 
         return $maxIndex;
+    }
+
+    private function heapSort(array $arrayToSort): array
+    {
+        $heapSize = count($arrayToSort);
+
+        // Build the heap (rearranging the array to form a valid max-heap)
+        for ($i = (int)($heapSize / 2) - 1; $i >= 0; $i--) {
+            $this->heapify($arrayToSort, $heapSize, $i);
+        }
+
+        // Repeatedly extract the largest element from the heap and move it to the end of the array
+        for ($i = $heapSize - 1; $i > 0; $i--) {
+            // Swap the root (the largest element) with the last element in the heap
+            $temp = $arrayToSort[0];
+            $arrayToSort[0] = $arrayToSort[$i];
+            $arrayToSort[$i] = $temp;
+
+            // Restore the heap property for the remaining elements
+            $this->heapify($arrayToSort, $i, 0);
+        }
+
+        return $arrayToSort;
+    }
+
+    /**
+     * Transform a subtree into a max-heap with the root at the specified $root index
+     */
+    private function heapify(array &$arrayToSort, int $heapSize, int $root): void
+    {
+        $largest = $root;
+        $leftChild = 2 * $root + 1;
+        $rightChild = 2 * $root + 2;
+
+        // Check if the left child exists and is greater than the root
+        if ($leftChild < $heapSize && $arrayToSort[$leftChild] > $arrayToSort[$largest]) {
+            $largest = $leftChild;
+        }
+
+        // Check if the right child exists and is greater than the current largest
+        if ($rightChild < $heapSize && $arrayToSort[$rightChild] > $arrayToSort[$largest]) {
+            $largest = $rightChild;
+        }
+
+        // If the largest node is not the root, swap and heapify recursively
+        if ($largest != $root) {
+            $temp = $arrayToSort[$root];
+            $arrayToSort[$root] = $arrayToSort[$largest];
+            $arrayToSort[$largest] = $temp;
+
+            // Recursively heapify the affected subtree
+            $this->heapify($arrayToSort, $heapSize, $largest);
+        }
     }
 }
