@@ -5,7 +5,6 @@ namespace App\Form;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Regex;
 
@@ -20,8 +19,8 @@ class SortingMethodType extends AbstractType
                         'message' => "Acest camp nu poate fi gol!",
                     ]),
                     new Regex([
-                        'pattern' => '/^(-?\d+(\.\d+)?)(,\s*-?\d+(\.\d+)?)*$/',
-                        'message' => "Introduceti un sir de numere reale separate prin virgula!"
+                        'pattern' => '/^-?\\d+(,-?\\d+)*$/',
+                        'message' => "Vă rugăm să introduceți un șir de numere întregi separate prin virgulă!",
                     ]),
                 ],
             ]);
