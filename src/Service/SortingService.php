@@ -129,4 +129,26 @@ class SortingService
         }
         return $arrayToSort;
     }
+
+    private function bubbleSort(array $arrayToSort): array
+    {
+        $n = count($arrayToSort);
+
+        do {
+            $swapped = false;
+
+            for ($i = 1; $i < $n; $i++) {
+                if ($arrayToSort[$i - 1] > $arrayToSort[$i]) {
+                    $temp = $arrayToSort[$i - 1];
+                    $arrayToSort[$i - 1] = $arrayToSort[$i];
+                    $arrayToSort[$i] = $temp;
+
+                    $swapped = true;
+                }
+            }
+
+        } while ($swapped);
+
+        return $arrayToSort;
+    }
 }
