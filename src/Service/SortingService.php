@@ -9,6 +9,7 @@ use ReflectionClass;
 class SortingService
 {
     private const BUBBLE = 'bubble';
+    private const BUCKET = 'bucket';
     private const COUNTING = 'counting';
     private const INSERTION = 'insertion';
     private const MERGE = 'merge';
@@ -91,24 +92,6 @@ class SortingService
         }
 
         return array_merge($this->quickSort($left), [$pivot], $this->quickSort($right));
-    }
-
-    private function insertionSort(array $arrayToSort): array
-    {
-        $n = count($arrayToSort);
-
-        for ($i = 1; $i < $n; $i++) {
-            $key = $arrayToSort[$i];
-            $j = $i - 1;
-
-            while ($j >= 0 && $arrayToSort[$j] > $key) {
-                $arrayToSort[$j + 1] = $arrayToSort[$j];
-                $j = $j - 1;
-            }
-            $arrayToSort[$j + 1] = $key;
-        }
-
-        return $arrayToSort;
     }
 
     private function selectionSort(array $arrayToSort): array
@@ -196,5 +179,65 @@ class SortingService
         }
 
         return $sorted;
+    }
+
+    private function insertionSort(array $arrayToSort): array
+    {
+        $n = count($arrayToSort);
+
+        for ($i = 1; $i < $n; $i++) {
+            $key = $arrayToSort[$i];
+            $j = $i - 1;
+
+            while ($j >= 0 && $arrayToSort[$j] > $key) {
+                $arrayToSort[$j + 1] = $arrayToSort[$j];
+                $j = $j - 1;
+            }
+            $arrayToSort[$j + 1] = $key;
+        }
+
+        return $arrayToSort;
+    }
+
+    private function bucketSort(array $arrayToSort): array
+    {
+        $bucketCount = count($arrayToSort);
+
+        $minValue = min($arrayToSort);
+        $maxValue = max($arrayToSort);
+
+        $bucketSize = ceil(($maxValue - $minValue + 1) / $bucketCount);
+
+        // Initialize an array of empty buckets
+        $buckets = array_fill(0, $bucketCount, []);
+
+        // Distribute the elements from the input array into appropriate buckets
+        foreach ($arrayToSort as $value) {
+            // Determine the index of the bucket to which the element belongs
+            $index = floor(($value - $minValue) / $bucketSize);
+
+            // Ensure the index does not exceed the number of available buckets
+            if ($index >= $bucketCount) {
+                $index = $bucketCount - 1;
+            }
+
+            // Place the element into the corresponding bucket
+            $buckets[$index][] = $value;
+        }
+
+        // Sort each individual bucket using the Insertion Sort algorithm
+        foreach ($buckets as &$bucket) {
+            $bucket = $this->insertionSort($bucket);
+//            sort($bucket);
+        }
+
+        // Merge all the buckets to form the final sorted array
+        $result = [];
+        unset($bucket);
+        foreach ($buckets as $bucket) {
+            $result = array_merge($result, $bucket);
+        }
+
+        return $result;
     }
 }
