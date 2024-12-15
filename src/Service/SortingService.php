@@ -13,8 +13,9 @@ class SortingService
     private const COUNTING = 'counting';
     private const INSERTION = 'insertion';
     private const MERGE = 'merge';
-    private const SELECTION = 'selection';
     private const QUICK = 'quick';
+    private const RADIX = 'radix';
+    private const SELECTION = 'selection';
 
     public function getSortingMethodsArray(): array
     {
@@ -228,7 +229,6 @@ class SortingService
         // Sort each individual bucket using the Insertion Sort algorithm
         foreach ($buckets as &$bucket) {
             $bucket = $this->insertionSort($bucket);
-//            sort($bucket);
         }
 
         // Merge all the buckets to form the final sorted array
@@ -239,5 +239,76 @@ class SortingService
         }
 
         return $result;
+    }
+
+    /**
+     * @throws AppException
+     */
+    private function radixSort(array $arrayToSort): array
+    {
+        foreach ($arrayToSort as $item) {
+            if ($item < 0) {
+                throw new AppException("Algoritmul de sortare Radix Sort acceptă doar numere naturale (întregi pozitive sau zero).");
+            }
+        }
+
+        // Determine the number of digits in the largest number
+        $maxDigits = $this->getMaxDigits($arrayToSort);
+
+        // Apply Radix Sort for each digit position, from least significant to most significant
+        for ($i = 1; $i <= $maxDigits; $i++) {
+            $arrayToSort = $this->bucketSortOnDigitI($arrayToSort, $i);
+        }
+
+        return $arrayToSort;
+    }
+
+    /**
+     * Get the number of digits in the largest number in the array
+     */
+    function getMaxDigits(array $arrayToSort): int
+    {
+        $max = max($arrayToSort);
+        $maxDigits = 0;
+
+        // Calculate the number of digits in the largest number
+        while ($max > 0) {
+            $max = (int)($max / 10);
+            $maxDigits++;
+        }
+
+        return $maxDigits;
+    }
+
+    /**
+     * (For RadixSort) Distribute elements into buckets based on the digit at a specific position
+     */
+    function bucketSortOnDigitI(array $arrayToSort, int $digitPosition): array
+    {
+        // Initialize an array of 10 buckets (for digits 0 to 9)
+        $buckets = array_fill(0, 10, []);
+
+        // Distribute elements into the corresponding buckets based on the current digit
+        foreach ($arrayToSort as $number) {
+            $digit = $this->getDigitAtPosition($number, $digitPosition);
+            $buckets[$digit][] = $number;
+        }
+
+        // Merge the elements back from buckets to form the array in sorted order
+        $arrayToSort = [];
+        foreach ($buckets as $bucket) {
+            $arrayToSort = array_merge($arrayToSort, $bucket);
+        }
+
+        return $arrayToSort;
+    }
+
+    /**
+     * Get the digit at a specific position in a number
+     */
+    function getDigitAtPosition(int $number, int $position): int
+    {
+        // Obtain the digit at the specified position
+        return (int)(($number / pow(10, $position - 1)) % 10);
     }
 }
