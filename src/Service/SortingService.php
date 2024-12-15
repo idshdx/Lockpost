@@ -91,11 +91,11 @@ class SortingService
         return array_merge($this->quickSort($left), [$pivot], $this->quickSort($right));
     }
 
-    private function insertionSort($arrayToSort)
+    private function insertionSort(array $arrayToSort): array
     {
         $n = count($arrayToSort);
 
-        for($i = 1; $i < $n; $i++) {
+        for ($i = 1; $i < $n; $i++) {
             $key = $arrayToSort[$i];
             $j = $i - 1;
 
@@ -104,6 +104,28 @@ class SortingService
                 $j = $j - 1;
             }
             $arrayToSort[$j + 1] = $key;
+        }
+        return $arrayToSort;
+    }
+
+    private function selectionSort(array $arrayToSort): array
+    {
+        $n = count($arrayToSort);
+
+        for ($i = 0; $i < $n - 1; $i++) {
+            $minIndex = $i;
+
+            for ($j = $i + 1; $j < $n; $j++) {
+                if ($arrayToSort[$j] < $arrayToSort[$minIndex]) {
+                    $minIndex = $j;
+                }
+            }
+
+            if ($minIndex != $i) {
+                $temp = $arrayToSort[$i];
+                $arrayToSort[$i] = $arrayToSort[$minIndex];
+                $arrayToSort[$minIndex] = $temp;
+            }
         }
         return $arrayToSort;
     }
