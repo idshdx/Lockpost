@@ -8,6 +8,7 @@ use ReflectionClass;
 
 class SortingService
 {
+    private const BST = 'BST';
     private const BUBBLE = 'bubble';
     private const BUCKET = 'bucket';
     private const COUNTING = 'counting';
@@ -421,5 +422,17 @@ class SortingService
             // Recursively heapify the affected subtree
             $this->heapify($arrayToSort, $heapSize, $largest);
         }
+    }
+
+    private function BSTSort(array $arrayToSort): array
+    {
+        $root = new TreeNode($arrayToSort[0]);
+        for ($i = 1, $n = count($arrayToSort); $i < $n; $i++) {
+            $root->insert($arrayToSort[$i]);
+        }
+        $result = [];
+        $root->inOrderTraversal($result);
+
+        return $result;
     }
 }
