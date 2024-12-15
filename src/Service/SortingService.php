@@ -2,16 +2,18 @@
 
 namespace App\Service;
 
+use App\Exception\AppException;
 use Exception;
 use ReflectionClass;
 
 class SortingService
 {
-    private const MERGE = 'merge';
-    private const QUICK = 'quick';
     private const BUBBLE = 'bubble';
+    private const COUNTING = 'counting';
     private const INSERTION = 'insertion';
+    private const MERGE = 'merge';
     private const SELECTION = 'selection';
+    private const QUICK = 'quick';
 
     public function getSortingMethodsArray(): array
     {
@@ -29,7 +31,7 @@ class SortingService
             return $this->$methodName($arrayToSort);
         }
 
-        throw new Exception("Metoda de sortare {$methodName} nu exista!");
+        throw new AppException("Metoda de sortare {$methodName} nu exista!");
     }
 
     // The MergeSort function itself
@@ -105,6 +107,7 @@ class SortingService
             }
             $arrayToSort[$j + 1] = $key;
         }
+
         return $arrayToSort;
     }
 
@@ -127,6 +130,7 @@ class SortingService
                 $arrayToSort[$minIndex] = $temp;
             }
         }
+
         return $arrayToSort;
     }
 
@@ -150,5 +154,47 @@ class SortingService
         } while ($swapped);
 
         return $arrayToSort;
+    }
+
+    /**
+     * @throws AppException
+     */
+    private function countingSort(array $arrayToSort): array
+    {
+        if (empty($arrayToSort)) {
+            return [];
+        }
+
+        $maxValue = max($arrayToSort);
+
+        // Initialize the count array with zeros
+        $count = array_fill(0, $maxValue + 1, 0);
+
+        // Count occurrences of each value in the input array
+        foreach ($arrayToSort as $value) {
+            if ($value < 0) {
+                throw new AppException("Algoritmul de sortare Counting Sort acceptă doar numere naturale (întregi pozitive sau zero).");
+            }
+
+            $count[$value]++;
+        }
+
+        // Accumulate the count array to store the positions of elements
+        for ($i = 1; $i <= $maxValue; $i++) {
+            $count[$i] += $count[$i - 1];
+        }
+
+        // Initialize the sorted array
+        $sorted = array_fill(0, count($arrayToSort), null);
+
+        // Build the sorted array in reverse order for stability
+        for ($i = count($arrayToSort) - 1; $i >= 0; $i--) {
+            $value = $arrayToSort[$i];
+            $position = $count[$value] - 1; // Determine the position in the sorted array
+            $sorted[$position] = $value;
+            $count[$value]--; // Decrement the count for the value
+        }
+
+        return $sorted;
     }
 }
