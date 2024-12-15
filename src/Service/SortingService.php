@@ -78,6 +78,8 @@ class SortingService
 
     private function quickSort($arrayToSort): array
     {
+//        throw new AppException("ceva");
+
         $left = $right = [];
 
         if (count($arrayToSort) < 2) {
