@@ -12,6 +12,7 @@ class SortingService
     private const BUCKET = 'bucket';
     private const COUNTING = 'counting';
     private const INSERTION = 'insertion';
+    private const FLIPPING = 'flipping';
     private const MERGE = 'merge';
     private const QUICK = 'quick';
     private const RADIX = 'radix';
@@ -310,5 +311,61 @@ class SortingService
     {
         // Obtain the digit at the specified position
         return (int)(($number / pow(10, $position - 1)) % 10);
+    }
+
+    private function flippingSort(array $arrayToSort): array
+    {
+        $count = count($arrayToSort);
+
+        // Iterate from the full array size down to 2
+        for ($currentSize = $count; $currentSize > 1; $currentSize--) {
+            // Find the index of the largest element in the first $currentSize elements
+            $maxIndex = $this->findMax($arrayToSort, $currentSize);
+
+            // If the largest element is not already at the end of the current segment
+            if ($maxIndex != $currentSize - 1) {
+                // Move the largest element to the beginning of the array segment
+                $this->flip($arrayToSort, $maxIndex);
+                // Then place it at the end of the segment by flipping the current size's end
+                $this->flip($arrayToSort, $currentSize - 1);
+            }
+        }
+
+        return $arrayToSort;
+    }
+
+    /**
+     * Flip elements in the array between two indices
+     */
+    private function flip(array &$array, int $index): void
+    {
+        $start = 0;
+
+        // Swap elements from the start-up to the given index
+        while ($start < $index) {
+            $temp = $array[$start];
+            $array[$start] = $array[$index];
+            $array[$index] = $temp;
+
+            $start++;
+            $index--;
+        }
+    }
+
+    /**
+     * Find the index of the largest element in the first $length elements of the array
+     */
+    private function findMax(array $array, int $length): int
+    {
+        $maxIndex = 0;
+
+        // Iterate through the array segment to find the maximum element's index
+        for ($i = 0; $i < $length; $i++) {
+            if ($array[$i] > $array[$maxIndex]) {
+                $maxIndex = $i;
+            }
+        }
+
+        return $maxIndex;
     }
 }
