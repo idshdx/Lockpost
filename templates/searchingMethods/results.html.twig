@@ -1,0 +1,29 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ searchingMethodTitle }}{% endblock %}
+
+{% block body %}
+    <h1 class="text-center">{{ searchingMethodTitle }}</h1>
+
+    <div class="text-center mt-4">
+        <label class="badge bg-primary p-3 fs-4">
+            Sirul {{ array }}
+        </label>
+    </div>
+
+    <div class="text-center mt-4">
+        <label class="badge bg-primary p-3 fs-4">
+            Numarul {{ needle }}
+        </label>
+    </div>
+
+    <div class="text-center mt-4">
+        <label class="badge bg-primary p-3 fs-4">
+            {% if position == -1 %}
+                Numarul nu a fost identificat in sir
+            {% else %}
+                Identificat la pozitia {{ position }}
+            {% endif %}
+        </label>
+    </div>
+{% endblock %}
