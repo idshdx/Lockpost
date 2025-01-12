@@ -78,7 +78,7 @@ class SortingService
 
     private function quickSort($arrayToSort): array
     {
-//        throw new AppException("ceva");
+        throw new AppException("ceva");
 
         $left = $right = [];
 
