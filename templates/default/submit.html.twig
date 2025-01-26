@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Submit Encrypted Message{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .loading {
+        display: none;
+    }
+    .loading.active {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card mt-5">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Send Encrypted Message</h2>
+                        <div class="alert alert-info mb-4">
+                            <p class="mb-0">Your message will be encrypted with the recipient's PGP key before sending. The original message will not be stored or transmitted.</p>
+                        </div>
+                        
+                        <form id="messageForm" onsubmit="return encryptAndSubmit(event)">
+                            <div class="mb-3">
+                                <label for="message" class="form-label">Your Message</label>
+                                <textarea class="form-control" id="message" rows="6" required></textarea>
+                            </div>
+                            <div class="loading" id="loadingIndicator">
+                                <div class="alert alert-warning">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Encrypting message...
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Send Encrypted Message</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.0/dist/openpgp.min.js"></script>
+<script>
+const publicKey = `{{ publicKey|raw }}`;
+const recipientEmail = `{{ email }}`;
+
+async function encryptAndSubmit(event) {
+    event.preventDefault();
+    const messageElement = document.getElementById('message');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const submitButton = event.target.querySelector('button[type="submit"]');
+
+    try {
+        loadingIndicator.classList.add('active');
+        submitButton.disabled = true;
+        messageElement.disabled = true;
+
+        const message = messageElement.value;
+        const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
+        
+        const encrypted = await openpgp.encrypt({
+            message: await openpgp.createMessage({ text: message }),
+            encryptionKeys: publicKeyObj
+        });
+
+        // Send encrypted message to server
+        const response = await fetch('/api/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                encrypted: encrypted,
+                recipient: recipientEmail
+            })
+        });
+
+        if (response.ok) {
+            messageElement.value = '';
+            alert('Message encrypted and sent successfully!');
+            window.location.href = '/';
+        } else {
+            throw new Error('Failed to send message');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    } finally {
+        loadingIndicator.classList.remove('active');
+        submitButton.disabled = false;
+        messageElement.disabled = false;
+    }
+
+    return false;
+}
+</script>
+{% endblock %}

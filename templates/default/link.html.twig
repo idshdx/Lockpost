@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Your Secure Link{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card mt-5">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Your Secure Link is Ready</h2>
+                        <div class="alert alert-success">
+                            <p class="mb-0">Share this link with the person who needs to send you encrypted information:</p>
+                        </div>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" id="linkInput" value="{{ url('app_submit', {'token': token}) }}" readonly>
+                            <button class="btn btn-outline-primary" type="button" onclick="copyLink()">Copy Link</button>
+                        </div>
+                        <div class="alert alert-info mt-4">
+                            <h5>Important Information:</h5>
+                            <ul class="mb-0">
+                                <li>This link will expire in 30 days</li>
+                                <li>The message will be encrypted with your PGP public key</li>
+                                <li>You will receive the encrypted message in your email</li>
+                                <li>No data is stored on our servers</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function copyLink() {
+    var linkInput = document.getElementById('linkInput');
+    linkInput.select();
+    document.execCommand('copy');
+    
+    var button = event.target;
+    var originalText = button.innerText;
+    button.innerText = 'Copied!';
+    setTimeout(function() {
+        button.innerText = originalText;
+    }, 2000);
+}
+</script>
+{% endblock %}

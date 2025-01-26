@@ -1,18 +1,30 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}API Welcome{% endblock %}
+{% block title %}Generate Secure PGP Message Link{% endblock %}
 
 {% block body %}
-    <div class="text-center">
-        <h1 class="mt-5">Symfony API</h1>
-        <p class="lead">Your API endpoint is accessible at <code>/</code></p>
-        <div class="mt-4">
-            <pre class="bg-light p-3 rounded">
-                {
-                    "status": "ok",
-                    "message": "Welcome to Symfony API"
-                }
-            </pre>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card mt-5">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Generate Secure Message Link</h2>
+                        <div class="alert alert-info mb-4">
+                            <h5>How it works:</h5>
+                            <ol class="mb-0">
+                                <li>Enter your email address that has a public PGP key published on key servers</li>
+                                <li>Get a secure link to share with someone who needs to send you an encrypted message</li>
+                                <li>When they use the link, their message will be encrypted with your public key</li>
+                                <li>You'll receive the encrypted message in your email</li>
+                            </ol>
+                        </div>
+
+                        {{ form_start(form) }}
+                        {{ form_widget(form) }}
+                        {{ form_end(form) }}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}
