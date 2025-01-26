@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}API Welcome{% endblock %}
+
+{% block body %}
+    <div class="text-center">
+        <h1 class="mt-5">Symfony API</h1>
+        <p class="lead">Your API endpoint is accessible at <code>/</code></p>
+        <div class="mt-4">
+            <pre class="bg-light p-3 rounded">
+                {
+                    "status": "ok",
+                    "message": "Welcome to Symfony API"
+                }
+            </pre>
+        </div>
+    </div>
+{% endblock %}

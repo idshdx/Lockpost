@@ -28,21 +28,4 @@ services:
     volumes:
       - ./:/var/www/app
       - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-    depends_on:
-      - mysql
-    restart: 'no'
-    # MYSQL
-  mysql:
-    image: mysql:8.3.0
-    platform: linux/amd64
-    container_name: mysql
-    ports:
-      - "3306:3306"
-    labels:
-      com.symfony.server.service-prefix: 'MYSQL'
-    volumes:
-      - ./docker/mysql/volume:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-    command: --mysql-native-password=ON --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     restart: 'no'

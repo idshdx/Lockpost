@@ -1,113 +1,32 @@
 <!DOCTYPE html>
-<html lang="RO">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>
-        {% block title %}Welcome!
-        {% endblock %}
-    </title>
-    <link rel="icon"
-          href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-    <link rel="stylesheet" href="{{ asset('bootstrap/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('styles.css') }}">
+    <title>{% block title %}Welcome!{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     {% block stylesheets %}{% endblock %}
-
-    <script src="{{ asset('jquery.min.js') }}"></script>
-
-    <script src="{{ asset('bootstrap/bootstrap.min.js') }}"></script>
-
-
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">Symfony App</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ path('app_dashboard_get') }}">Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ path('app_student_index') }}">Studenti</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ path('app_university_index') }}">Universitati</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Sorting Methods
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="/sorting-methods/merge-sort">Merge Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/quick-sort">Quick Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/insertion-sort">Insertion Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/selection-sort">Selection Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/bubble-sort">Bubble Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/counting-sort">Counting Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/bucket-sort">Bucket Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/radix-sort">Radix Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/flipping-sort">Flipping Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/heap-sort">Heap Sort</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/sorting-methods/BST-sort">BST Sort</a>
-                        </li>
-                    </ul>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Searching Methods
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="/searching-methods/sequential-search">Sequential Search</a>
-                        </li>
-
-                        <li><a class="dropdown-item" href="/searching-methods/binary-search">Binary Search</a>
-                        </li>
-                    </ul>
-                </li>
-
-            </ul>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="{{ path('app_index') }}">Symfony App</a>
         </div>
-    </div>
-</nav>
+    </nav>
 
-<div class="container-fluid mt-4">
-    {% block body %}
-        {% for type, messages in app.flashes %}
-            {% for message in messages %}
-                <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }}" role="alert">
-                    {{ message }}
-                </div>
+    <div class="container mt-4">
+        {% block body %}
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
             {% endfor %}
-        {% endfor %}
-    {% endblock %}
-</div>
+        {% endblock %}
+    </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block javascripts %}{% endblock %}
 </body>
 </html>
