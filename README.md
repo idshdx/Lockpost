@@ -1,43 +1,77 @@
 # PGP Reply Symfony Application
 
+### About
 
-
-### About 
-
-Generate links that users can use to submit messages encrypted with your public key.
-
+PGP Reply is a secure web application that allows users to generate unique links for receiving PGP-encrypted messages. The application is built with Symfony and provides a simple way for people to send you encrypted messages without needing to understand the complexities of PGP encryption.
 
 ### Why
 
-The app lets you create unique links that you can share with the person that desires to send you important information but doesn't know how to deal with PGP.
+The app solves a common problem: receiving sensitive information securely from people who aren't familiar with PGP encryption. By generating a unique link that you can share, anyone can send you encrypted messages that only you can read, without needing to understand the technical details of PGP.
 
-### How
+### How It Works
 
-Send your app link, and receive the confidential information encrypted in your inbox.
+1. You generate a unique link through the app by providing your email address
+2. The app verifies your public PGP key from common key servers
+3. Share the generated link with someone who needs to send you sensitive information
+4. When they visit the link, they can type their message in a secure form
+5. The message is encrypted in their browser using your public PGP key
+6. The encrypted message is sent to your email address
+7. You can decrypt the message using your private PGP key
 
-You generate a unique link with the app, then you share it with someone that needs to send you
-secret information.
-When that person visits your app link and submits the sensitive data, this is encrypted in
-their browser with the PGP public key of the email you used on signup.
-The encrypted message is sent to your email.
-This means that the app is not able to see the original message, and no message is stored.
+### Security Features
 
-### The way it works
+- **End-to-End Encryption**: All messages are encrypted in the browser using OpenPGP.js before being sent
+- **Zero Storage**: No messages are stored on the server - they are only forwarded to your email
+- **Client-Side Encryption**: Messages are encrypted on the sender's browser using your public key
+- **Server-Side Signing**: The server signs the encrypted content (experimental feature)
 
-When you generate a link to share, you provide your email address, and the app checks your public key in common key 
-servers providers.
-When the shared link is opened, and the message is submitted, all the content is encrypted on the client side with 
-the PGP public key.
-The server then signs (experimental) the encrypted content.
-Finally, the server forwards it to your e-mail address.
+### Development Setup
 
+The application uses Docker for development. To get started:
 
-### Why is this safe
+1. Clone the repository
+2. Make sure you have Docker and Docker Compose installed
+3. Run the following command to start the development environment:
+```bash
+docker-compose up -d
+```
 
-The app provides end-to-end encryption using OpenPGP.js library, which means that the submitted information will be
-only visible to who created the link (the owner of the key), and the app will not save it.
-No message is stored.
+This will start:
+- NGINX web server (ports 80, 443)
+- PHP-FPM (ports 9000, 9001)
+- MailHog for email testing (ports 1025, 8025)
+
+### Testing Email Delivery
+
+The application uses MailHog for testing email delivery in the development environment. To verify the email delivery process:
+
+1. Access the MailHog web interface at http://localhost:8025
+2. Send a test message through your application
+3. Check the MailHog interface to see:
+   - The encrypted message content
+   - Recipient email address
+   - Email headers and metadata
 
 ### What's PGP?
-PGP is an encryption technology often used for signing, encrypting, and decrypting texts and files. This is what
-the app uses to encrypt messages. You can read more about how to generate your PGP key on the help page.
+
+PGP (Pretty Good Privacy) is an encryption technology used for:
+- Encrypting sensitive messages and files
+- Digital signatures
+- Secure communication
+
+The application uses PGP's public-key cryptography to ensure that only the intended recipient can read the messages. To use the application, you need to:
+
+1. Have a PGP key pair (public and private keys)
+2. Publish your public key on common key servers
+3. Keep your private key secure and never share it
+
+You can learn more about generating and managing PGP keys on the application's help page.
+
+### Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues for any bugs or feature requests.
+
+Before submitting changes:
+1. Make sure all tests pass
+2. Update documentation as needed
+3. Follow the existing code style and conventions
