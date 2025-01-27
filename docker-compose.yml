@@ -1,4 +1,3 @@
-version: "3.4"
 
 services:
   # NGINX
@@ -28,6 +27,10 @@ services:
     volumes:
       - ./:/var/www/app
       - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./config/pgp:/var/www/app/config/pgp:delegated
+    environment:
+      - GNUPGHOME=/var/www/app/config/pgp
+      - PHP_IDE_CONFIG=serverName=symfony
     restart: 'no'
   # MailHog for email testing
   mailhog:

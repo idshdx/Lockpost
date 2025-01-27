@@ -8,6 +8,24 @@ PGP Reply is a secure web application that allows users to generate unique links
 
 The app solves a common problem: receiving sensitive information securely from people who aren't familiar with PGP encryption. By generating a unique link that you can share, anyone can send you encrypted messages that only you can read, without needing to understand the technical details of PGP.
 
+
+
+### What's PGP?
+
+PGP (Pretty Good Privacy) is an encryption technology used for:
+- Encrypting sensitive messages and files
+- Digital signatures
+- Secure communication
+
+The application uses PGP's public-key cryptography to ensure that only the intended recipient can read the messages. To use the application, you need to:
+
+1. Have a PGP key pair (public and private keys)
+2. Publish your public key on common key servers
+3. Keep your private key secure and never share it
+
+You can learn more about generating and managing PGP keys on the application's help page.
+
+
 ### How It Works
 
 1. You generate a unique link through the app by providing your email address
@@ -23,7 +41,6 @@ The app solves a common problem: receiving sensitive information securely from p
 - **End-to-End Encryption**: All messages are encrypted in the browser using OpenPGP.js before being sent
 - **Zero Storage**: No messages are stored on the server - they are only forwarded to your email
 - **Client-Side Encryption**: Messages are encrypted on the sender's browser using your public key
-- **Server-Side Signing**: The server signs the encrypted content (experimental feature)
 
 ### Development Setup
 
@@ -52,20 +69,91 @@ The application uses MailHog for testing email delivery in the development envir
    - Recipient email address
    - Email headers and metadata
 
-### What's PGP?
+### Server-Side Message Signing
 
-PGP (Pretty Good Privacy) is an encryption technology used for:
-- Encrypting sensitive messages and files
-- Digital signatures
-- Secure communication
+To enhance security and message authenticity, the application implements server-side PGP signing of all outgoing encrypted messages. This feature provides several benefits:
 
-The application uses PGP's public-key cryptography to ensure that only the intended recipient can read the messages. To use the application, you need to:
+- **Message Authentication**: Recipients can verify that messages were actually processed by our server
+- **Tampering Detection**: Any modifications to the message during transit can be detected
+- **Trust Chain**: Creates a verifiable chain of trust from sender through our service to recipient
 
-1. Have a PGP key pair (public and private keys)
-2. Publish your public key on common key servers
-3. Keep your private key secure and never share it
+#### Technical Implementation
 
-You can learn more about generating and managing PGP keys on the application's help page.
+The signing process is handled by the `PgpSigningService` and involves these key components:
+
+1. **Server Key Management**:
+   - Server maintains its own PGP key pair in the `config/pgp/` directory
+   - Private key is securely stored and used only for message signing
+   - Public key is freely available via the `/public-key` endpoint
+
+2. **Signing Process**:
+   - Encrypted messages are signed using the server's private key
+   - Signing occurs after browser-side encryption but before email delivery
+   - Implementation uses GnuPG through secure PHP bindings
+
+3. **Security Considerations**:
+   - Server's private key is protected and never exposed to users
+   - Signing process occurs in isolated environment
+   - Regular key rotation policies are enforced
+
+#### Configuration
+
+The signing feature requires proper setup in your deployment:
+
+1. Generate a server key pair:
+```bash
+gpg --gen-key
+```
+
+2. Configure key paths in `config/packages/gpg.yaml`:
+```yaml
+app:
+    gpg:
+        public_key_path: '%kernel.project_dir%/config/pgp/public.key'
+        private_key_path: '%kernel.project_dir%/config/pgp/private.key'
+```
+
+3. Set appropriate permissions:
+```bash
+chmod 600 config/pgp/private.key
+chmod 644 config/pgp/public.key
+```
+
+#### Implementation Challenges
+
+During development, several challenges were addressed:
+
+1. **Key Management**:
+   - Secure key storage in different environments
+   - Key permission management in Docker containers
+   - Automated key rotation procedures
+
+2. **Performance**:
+   - Optimizing signing process for minimal latency
+   - Handling concurrent signing operations
+   - Memory management for large messages
+
+3. **Error Handling**:
+   - Graceful handling of signing failures
+   - Clear error messages for debugging
+   - Fallback procedures for system issues
+
+#### Alternative Approaches Considered
+
+1. **Client-Side Signing**:
+   - Considered having sender sign messages
+   - Rejected due to complexity for users
+   - Would have required client-side key management
+
+2. **Blockchain Verification**:
+   - Evaluated using blockchain for message verification
+   - Deemed unnecessarily complex for requirements
+   - Would have added significant overhead
+
+3. **HSM Integration**:
+   - Considered Hardware Security Modules
+   - May be implemented in future versions
+   - Currently unnecessary for security requirements
 
 ### Contributing
 

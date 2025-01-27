@@ -5,6 +5,8 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     app.mail_from: 'noreply@example.com'
+    app.pgp.private_key_path: '%kernel.project_dir%/config/pgp/private.key'
+    app.pgp.private_key_passphrase: '%env(PGP_PRIVATE_KEY_PASSPHRASE)%'
 
 services:
     # default configuration for services in *this* file
@@ -26,3 +28,8 @@ services:
     App\Service\LinkService:
         arguments:
             $appSecret: '%env(APP_SECRET)%'
+
+    App\Service\PgpSigningService:
+        arguments:
+            $privateKeyPath: '%app.pgp.private_key_path%'
+            $privateKeyPassphrase: '%app.pgp.private_key_passphrase%'

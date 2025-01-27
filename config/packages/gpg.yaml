@@ -1,0 +1,22 @@
+parameters:
+    gpg:
+        dev:
+            home_dir: "%kernel.project_dir%/config/pgp/key-config"
+            key_permissions: 0600
+            dir_permissions: 0700
+            key_path: "%kernel.project_dir%/config/pgp/private.key"
+            public_key_path: "%kernel.project_dir%/config/pgp/public.key"
+        prod:
+            home_dir: "/var/www/app/config/pgp/key-config"
+            key_permissions: 0600
+            dir_permissions: 0700
+            key_path: "/var/www/app/config/pgp/private.key"
+            public_key_path: "/var/www/app/config/pgp/public.key"
+
+services:
+    App\Service\PgpSigningService:
+        arguments:
+            $privateKeyPath: "%gpg.%env(APP_ENV)%.key_path%"
+            $publicKeyPath: "%gpg.%env(APP_ENV)%.public_key_path%"
+            $gnupgHome: "%gpg.%env(APP_ENV)%.home_dir%"
+            $logger: "@logger"

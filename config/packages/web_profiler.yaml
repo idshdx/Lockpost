@@ -5,8 +5,10 @@ when@dev:
 
     framework:
         profiler:
+            enabled: true
             only_exceptions: false
             collect_serializer_data: true
+            collect: false
 
 when@test:
     web_profiler:
