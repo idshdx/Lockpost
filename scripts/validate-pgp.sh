@@ -27,7 +27,7 @@ for dir in "${PGP_CONFIG_DIR}" "${KEY_CONFIG_DIR}"; do
         log "ERROR: Directory ${dir} does not exist"
         exit 1
     fi
-    
+
     dir_perms=$(stat -f "%OLp" "${dir}")
     if [ "${dir_perms}" != "700" ]; then
         log "ERROR: Incorrect permissions on ${dir} (${dir_perms})"
@@ -36,18 +36,28 @@ for dir in "${PGP_CONFIG_DIR}" "${KEY_CONFIG_DIR}"; do
     log "Directory ${dir} exists with correct permissions"
 done
 
-# Check key files
+# Check if key files or GPG keys are already present
+if [ -f "${PRIVATE_KEY}" ] && [ -f "${PUBLIC_KEY}" ]; then
+    log "Key files ${PRIVATE_KEY} and ${PUBLIC_KEY} already exist. Skipping key generation."
+elif gpg --list-secret-keys --keyid-format LONG &> /dev/null; then
+    log "GPG keyring already contains secret keys. Skipping key generation."
+else
+    log "No existing keys found. This script is only for validation, no key generation is implemented here."
+    exit 1
+fi
+
+# Check key file permissions
 for key_file in "${PRIVATE_KEY}" "${PUBLIC_KEY}"; do
     if [ ! -f "${key_file}" ]; then
         log "ERROR: Key file ${key_file} does not exist"
         exit 1
     fi
-    
+
     expected_perms="600"
     if [ "${key_file}" = "${PUBLIC_KEY}" ]; then
         expected_perms="644"
     fi
-    
+
     key_perms=$(stat -f "%OLp" "${key_file}")
     if [ "${key_perms}" != "${expected_perms}" ]; then
         log "ERROR: Incorrect permissions on ${key_file} (${key_perms})"
@@ -75,7 +85,7 @@ if ! gpg --sign /tmp/test-message &> /dev/null; then
 fi
 
 # Verify signature
-if ! gpg --verify /tmp/test-message.gpg &> /dev/null; then
+if ! gpg --verifySignature /tmp/test-message.gpg &> /dev/null; then
     log "ERROR: Failed to verify test message signature"
     rm -f /tmp/test-message /tmp/test-message.gpg
     exit 1
@@ -87,7 +97,7 @@ rm -f /tmp/test-message /tmp/test-message.gpg
 log "PGP environment validation completed successfully"
 
 # Check PHP GnuPG extension
-if ! php -m | grep -q "gnupg"; then
+if ! docker exec -it php php -m | grep -q "gnupg"; then
     log "ERROR: PHP GnuPG extension is not installed"
     exit 1
 fi

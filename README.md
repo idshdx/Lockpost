@@ -60,7 +60,7 @@ This will start:
 
 ### Testing Email Delivery
 
-The application uses MailHog for testing email delivery in the development environment. To verify the email delivery process:
+The application uses MailHog for testing email delivery in the development environment. To verifySignaturePage the email delivery process:
 
 1. Access the MailHog web interface at http://localhost:8025
 2. Send a test message through your application
@@ -73,7 +73,7 @@ The application uses MailHog for testing email delivery in the development envir
 
 To enhance security and message authenticity, the application implements server-side PGP signing of all outgoing encrypted messages. This feature provides several benefits:
 
-- **Message Authentication**: Recipients can verify that messages were actually processed by our server
+- **Message Authentication**: Recipients can verifySignaturePage that messages were actually processed by our server
 - **Tampering Detection**: Any modifications to the message during transit can be detected
 - **Trust Chain**: Creates a verifiable chain of trust from sender through our service to recipient
 

@@ -5,13 +5,17 @@ parameters:
             key_permissions: 0600
             dir_permissions: 0700
             key_path: "%kernel.project_dir%/config/pgp/private.key"
-            public_key_path: "%kernel.project_dir%/config/pgp/public.key"
+            public_key_path: '%kernel.project_dir%/config/pgp/public.key'
+            private_key_path: '%kernel.project_dir%/config/pgp/private.key'
+            default_key: '526305FEA2D9FD4A1B61185524EB37E488FBDBA0'
         prod:
             home_dir: "/var/www/app/config/pgp/key-config"
             key_permissions: 0600
             dir_permissions: 0700
             key_path: "/var/www/app/config/pgp/private.key"
-            public_key_path: "/var/www/app/config/pgp/public.key"
+            public_key_path: '%kernel.project_dir%/config/pgp/public.key'
+            private_key_path: '%kernel.project_dir%/config/pgp/private.key'
+            default_key: '526305FEA2D9FD4A1B61185524EB37E488FBDBA0'
 
 services:
     App\Service\PgpSigningService:

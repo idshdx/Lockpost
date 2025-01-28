@@ -12,7 +12,7 @@ class PgpKeyService
         'https://pgp.mit.edu'
     ];
 
-    public function verifyPublicKey(string $email): bool
+    public function verifyPublicKeyExists(string $email): bool
     {
         foreach (self::KEY_SERVERS as $server) {
             try {
@@ -28,7 +28,7 @@ class PgpKeyService
         return false;
     }
 
-    public function getPublicKey(string $email): string
+    public function getPublicKeyByEmail(string $email): string
     {
         foreach (self::KEY_SERVERS as $server) {
             try {

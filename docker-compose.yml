@@ -1,6 +1,4 @@
-
 services:
-  # NGINX
   nginx:
     image: nginx:stable-alpine
     container_name: nginx
@@ -15,7 +13,7 @@ services:
     restart: 'no'
     volumes:
       - ./public:/var/www/app/public
-  # PHP
+
   php:
     build:
       context: ./docker/php
@@ -32,7 +30,7 @@ services:
       - GNUPGHOME=/var/www/app/config/pgp
       - PHP_IDE_CONFIG=serverName=symfony
     restart: 'no'
-  # MailHog for email testing
+
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog

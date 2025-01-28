@@ -23,8 +23,8 @@
                         <div class="alert alert-info mb-4">
                             <p class="mb-0">Your message will be encrypted with the recipient's PGP key before sending. The original message will not be stored or transmitted.</p>
                         </div>
-                        
-                        <form id="messageForm" onsubmit="return encryptAndSubmit(event)">
+
+                        <form id="messageForm" onsubmit="return encryptAndSubmitMessage(event)">
                             <div class="mb-3">
                                 <label for="message" class="form-label">Your Message</label>
                                 <textarea class="form-control" id="message" rows="6" required></textarea>
@@ -52,7 +52,7 @@
 const publicKey = `{{ publicKey|raw }}`;
 const recipientEmail = `{{ email }}`;
 
-async function encryptAndSubmit(event) {
+async function encryptAndSubmitMessage(event) {
     event.preventDefault();
     const messageElement = document.getElementById('message');
     const loadingIndicator = document.getElementById('loadingIndicator');
@@ -64,15 +64,14 @@ async function encryptAndSubmit(event) {
         messageElement.disabled = true;
 
         const message = messageElement.value;
-        const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
-        
+        const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
+
         const encrypted = await openpgp.encrypt({
             message: await openpgp.createMessage({ text: message }),
-            encryptionKeys: publicKeyObj
+            encryptionKeys: recipientPublicKey
         });
 
-        // Send encrypted message to server
-        const response = await fetch('/api/submit', {
+        const response = await fetch('/message/submit', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

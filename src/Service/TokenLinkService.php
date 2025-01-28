@@ -4,7 +4,7 @@ namespace App\Service;
 
 use App\Exception\AppException;
 
-class LinkService
+class TokenLinkService
 {
     private string $appSecret;
     private const CIPHER = 'aes-256-cbc';
@@ -25,7 +25,7 @@ class LinkService
         $ivlen = openssl_cipher_iv_length(self::CIPHER);
         $iv = openssl_random_pseudo_bytes($ivlen);
         $key = hash('sha256', $this->appSecret, true);
-        
+
         $encrypted = openssl_encrypt(
             $data,
             self::CIPHER,

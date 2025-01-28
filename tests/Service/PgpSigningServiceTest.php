@@ -30,7 +30,7 @@ class PgpSigningServiceTest extends TestCase
         $this->assertNotEmpty($signedMessage);
         $this->assertStringContainsString('-----BEGIN PGP SIGNATURE-----', $signedMessage);
         $this->assertStringContainsString('-----END PGP SIGNATURE-----', $signedMessage);
-        // For detached signatures, we verify the format and presence of signature blocks
+        // For detached signatures, we verifySignaturePage the format and presence of signature blocks
         $this->assertStringContainsString('-----BEGIN PGP SIGNATURE-----', $signedMessage);
         $this->assertStringContainsString('-----END PGP SIGNATURE-----', $signedMessage);
         $this->assertNotEmpty($signedMessage);
@@ -76,10 +76,10 @@ class PgpSigningServiceTest extends TestCase
     {
         $message = 'Test cleanup message';
         $this->pgpSigningService->signMessage($message);
-        
+
         // Trigger destructor
         unset($this->pgpSigningService);
-        
+
         // Verify we can create a new instance without resource conflicts
         $newService = new PgpSigningService($this->testPrivateKeyPath, $this->testPassphrase);
         $signedMessage = $newService->signMessage($message);

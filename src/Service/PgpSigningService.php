@@ -126,16 +126,63 @@ class PgpSigningService
                 throw new AppException('Failed to sign message');
             }
 
-            // Combine the original message with the signature in PGP format
-            $combinedMessage = $message . "\n\n" . $signature;
             $this->logger->info('Message signed successfully');
-            return $combinedMessage;
+            return $signature;
         } catch (\Exception $e) {
             throw new AppException('Error signing message: ' . $e->getMessage());
         } finally {
             $this->cleanup();
         }
     }
+
+    public function getServerPublicKey(): ?string
+    {
+        if (!is_readable($this->publicKeyPath)) {
+            $this->logger->error('Public key file is missing or unreadable.', [
+                'path' => $this->publicKeyPath
+            ]);
+            return null;
+        }
+
+        $keyData = file_get_contents($this->publicKeyPath);
+        if ($keyData === false) {
+            throw new AppException('Failed to read the public key file.');
+        }
+
+        return $keyData;
+    }
+
+    public function verifySignature(string $message, string $signature): bool
+    {
+        try {
+            $publicKeyData = $this->getPublicKey();
+
+            if (!$publicKeyData) {
+                throw new AppException('No public key available.');
+            }
+
+            // Import Public Key
+            $importResult = $this->gnupg->import($publicKeyData);
+            if (!$importResult) {
+                throw new AppException('Invalid public key format.');
+            }
+
+            // Verify Signature
+            $verificationResult = $this->gnupg->verify($message, $signature);
+
+            return !empty($verificationResult)
+                && isset($verificationResult[0]['summary'])
+                && ($verificationResult[0]['summary'] === 0 || $verificationResult[0]['summary'] & \GNUPG_SIGSUM_VALID);
+        } catch (\Exception $e) {
+            $this->logger->error('Signature verification failed', [
+                'error' => $e->getMessage(),
+                'message_length' => strlen($message),
+                'signature_length' => strlen($signature),
+            ]);
+            return false;
+        }
+    }
+
 
     private function cleanup(): void
     {
