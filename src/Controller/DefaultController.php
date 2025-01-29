@@ -9,25 +9,25 @@ use App\Form\PgpVerifySignatureFormType;
 use App\Service\TokenLinkService;
 use App\Service\PgpKeyService;
 use App\Service\PgpSigningService;
-use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
-use InvalidArgumentException;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use App\Exception\ErrorHandler;
 
 class DefaultController extends AbstractController
 {
     private readonly LoggerInterface $logger;
+    private ErrorHandler $errorHandler;
 
     public function __construct(
+        ErrorHandler     $errorHandler,
         private readonly TokenLinkService $linkService,
         private readonly PgpKeyService $pgpKeyService,
         private readonly PgpSigningService $pgpSigningService,
@@ -35,6 +35,7 @@ class DefaultController extends AbstractController
         private readonly MailerInterface $mailer,
         LoggerInterface $logger
     ) {
+        $this->errorHandler = $errorHandler;
         $this->logger = $logger;
     }
 
@@ -60,11 +61,8 @@ class DefaultController extends AbstractController
                 return $this->render('default/link.html.twig', [
                     'token' => $token
                 ]);
-            } catch (Exception) {
-                $this->addFlash('error', $this->translator->trans('Could not retrieve PGP public key'));
-                return $this->render('default/index.html.twig', [
-                    'form' => $form->createView()
-                ]);
+            } catch (Exception $e) {
+                return $this->errorHandler->handleControllerException($e, 'Could not retrieve PGP public key');
             }
         }
 
@@ -84,37 +82,36 @@ class DefaultController extends AbstractController
                 'email' => $email,
                 'publicKey' => $publicKey
             ]);
-        } catch (Exception) {
-            throw $this->createNotFoundException('Invalid or expired link');
+        } catch (Exception $e) {
+            return $this->errorHandler->handleControllerException($e, 'Invalid or expired link');
         }
     }
 
     #[Route('/message/submit', name: 'app_submit_message', methods: ['POST'])]
     public function submitMessage(Request $request, ValidatorInterface $validator): Response
     {
-        $data = json_decode($request->getContent(), true);
+        try {
+            $data = json_decode($request->getContent(), true);
+            $dto = new MessageSubmitRequest($data);
 
-        $dto = new MessageSubmitRequest($data);
+            $errors = $validator->validate($dto);
 
-        $errors = $validator->validate($dto);
+            if (count($errors) > 0) {
+                $errorMessages = [];
 
-        if (count($errors) > 0) {
-            $errorMessages = [];
+                foreach ($errors as $error) {
+                    $errorMessages[] = $error->getMessage();
+                }
 
-            foreach ($errors as $error) {
-                $errorMessages[] = $error->getMessage();
+                return $this->json(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
             }
 
-            return $this->json(['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
-        }
-
-        try {
             $signature = $this->pgpSigningService->signMessage($dto->getEncryptedMessage());
-            $server_public_key = $this->pgpSigningService->getServerPublicKey();
+            $serverPublicKey = $this->pgpSigningService->getServerPublicKey();
 
             $emailContent = $this->renderView('default/email_template.html.twig', [
                 'app_verify_url' => $this->generateUrl('app_verify'),
-                'server_public_key' => trim($server_public_key),
+                'server_public_key' => trim($serverPublicKey),
                 'encrypted_message' => trim($dto->getEncryptedMessage()),
                 'signature' => trim($signature),
             ]);
@@ -125,67 +122,25 @@ class DefaultController extends AbstractController
                 ->subject('New Encrypted Message')
                 ->html($emailContent);
 
-            try {
-                $attempt = 0;
-                $maxAttempts = 3;
-                do {
-                    $attempt++;
+            $attempt = 0;
+            $maxAttempts = 3;
+            do {
+                try {
                     $this->mailer->send($email);
                     break;
-                } while ($attempt < $maxAttempts);
-            } catch (TransportExceptionInterface $e) {
-                $this->logger->error('E-mail sending failed.', [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
+                } catch (Exception $e) {
+                    $attempt++;
+                    $this->errorHandler->handleControllerException($e, 'E-mail sending failed');
+                }
+            } while ($attempt < $maxAttempts);
 
-                $this->addFlash('error', 'Failed to send email. Please try again later.');
-                return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            if ($attempt === $maxAttempts) {
+                throw new AppException('Failed to send email after multiple attempts.');
             }
 
             return $this->json(['status' => 'success']);
-
         } catch (Exception $e) {
-            $this->logger->error('Failed to process API submission', ['error' => $e->getMessage()]);
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
-        }
-    }
-
-    private function handlePGPVerification(array $data, Request $request, bool $persistSession = false): void
-    {
-        try {
-            $isValid = $this->pgpSigningService->verifySignature(
-                $data['message'],
-                $data['signature']
-            );
-
-            if ($persistSession) {
-                $session = $request->getSession();
-                $session->set('last_message', $data['message']);
-                $session->set('last_signature', $data['signature']);
-                $session->set('last_public_key', $data['public_key']);
-            }
-
-            $this->addFlash(
-                $isValid ? 'success' : 'warning',
-                $this->translator->trans($isValid ? 'Message signature is valid' : 'Message signature is invalid')
-            );
-
-            $this->logger->info('PGP signature verification attempt', [
-                'result' => $isValid ? 'valid' : 'invalid',
-                'message_length' => strlen($data['message']),
-                'signature_length' => strlen($data['signature']),
-                'public_key_length' => strlen($data['public_key']),
-                'ip' => $request->getClientIp(),
-            ]);
-
-        } catch (Exception $e) {
-            $this->logger->error('PGP verification error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'ip' => $request->getClientIp(),
-            ]);
-            $this->addFlash('danger', $this->translator->trans('Error verifying message'));
+            return $this->errorHandler->handleControllerException($e, 'Failed to process API submission');
         }
     }
 
@@ -193,10 +148,10 @@ class DefaultController extends AbstractController
     public function verifySignaturePage(Request $request): Response
     {
         try {
-            $server_public_key = $this->pgpSigningService->getServerPublicKey();
+            $serverPublicKey = $this->pgpSigningService->getServerPublicKey();
 
             $form = $this->createForm(PgpVerifySignatureFormType::class, null, [
-                'default_public_key' => $server_public_key
+                'default_public_key' => $serverPublicKey
             ]);
 
             $form->handleRequest($request);
@@ -208,14 +163,10 @@ class DefaultController extends AbstractController
 
             return $this->render('default/verify.html.twig', [
                 'form' => $form->createView(),
-                'server_public_key' => $server_public_key
+                'server_public_key' => $serverPublicKey
             ]);
-
         } catch (Exception $e) {
-            // todo add a general error handling method
-            $this->addFlash('error', $e->getMessage());
-            $this->logger->error('error', ['message' => $e->getMessage()]);
-            return new Response('An error occurred: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->errorHandler->handleControllerException($e, 'Could not load verify page');
         }
     }
 
@@ -261,24 +212,46 @@ class DefaultController extends AbstractController
         try {
             $config = $this->getParameter('gpg');
             if (!is_array($config) || !isset($config[$this->getParameter('kernel.environment')]['public_key_path'])) {
-                throw new InvalidArgumentException('Invalid GPG configuration.');
+                throw new AppException('Invalid GPG configuration.');
             }
             $keyPath = $config[$this->getParameter('kernel.environment')]['public_key_path'];
             if (!file_exists($keyPath) || !is_readable($keyPath)) {
-                throw new RuntimeException('Public key file not accessible.');
+                throw new AppException('Public key file not accessible.');
             }
             $keyData = file_get_contents($keyPath);
             if ($keyData === false) {
-                throw new RuntimeException('Failed to read public key file.');
+                throw new AppException('Failed to read public key file.');
             }
             return new Response($keyData, Response::HTTP_OK, [
                 'Content-Type' => 'text/plain',
                 'Content-Disposition' => 'attachment; filename="server-public-key.asc"',
             ]);
         } catch (Exception $e) {
-            $this->logger->error('Error retrieving public key', ['message' => $e->getMessage()]);
-            return new Response('An error occurred: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->errorHandler->handleControllerException($e, 'Error retrieving public key');
         }
     }
+
+    private function handlePGPVerification(array $data, Request $request): void
+    {
+        try {
+            $isValid = $this->pgpSigningService->verifySignature(
+                $data['message'],
+                $data['signature']
+            );
+
+            $session = $request->getSession();
+            $session->set('last_message', $data['message']);
+            $session->set('last_signature', $data['signature']);
+            $session->set('last_public_key', $data['public_key']);
+
+            $this->addFlash(
+                $isValid ? 'success' : 'warning',
+                $this->translator->trans($isValid ? 'Message signature is valid' : 'Message signature is invalid')
+            );
+        } catch (Exception $e) {
+            $this->errorHandler->handleControllerException($e, 'Error verifying message');
+        }
+    }
+
 
 }

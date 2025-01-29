@@ -8,11 +8,6 @@
             margin-left: 0.5rem;
         }
 
-        .copy-section {
-            display: flex;
-            align-items: start;
-        }
-
         .copy-section textarea {
             flex-grow: 1;
         }
@@ -158,7 +153,7 @@
 
 	            copyButton.addEventListener('click', () => {
 		            const tempTextArea = document.createElement('textarea');
-		            tempTextArea.value = keyTextarea.textContent || keyTextarea.value;
+		            tempTextArea.value = publicKeyInput.textContent || publicKeyInput.value;
 		            document.body.appendChild(tempTextArea);
 		            tempTextArea.select();
 		            document.execCommand('copy');
@@ -168,10 +163,10 @@
 		            const toast = document.createElement('div');
 		            toast.className = 'toast align-items-center text-bg-success border-0';
 		            toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">The signing key has been copied to the clipboard!</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>`;
+                                <div class="d-flex">
+                                    <div class="toast-body">The signing key has been copied to the clipboard!</div>
+                                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                                </div>`;
 		            document.body.appendChild(toast);
 		            const bootstrapToast = new bootstrap.Toast(toast, {delay: 3000});
 		            bootstrapToast.show();
@@ -198,7 +193,7 @@
 			            uploadInput.click();
 	            });
 
-	            form.addEventListener('submit', (event) => {
+	            form.addEventListener('submit', () => {
 		            publicKeyInput.value = publicKeyInput.value.trim();
 		            messageInput.value = messageInput.value.trim();
 		            signatureInput.value = signatureInput.value.trim();

@@ -28,4 +28,7 @@
 docker/mysql
 
 .env
-!/.fleet/
+
+.fleet/
+.cache
+.vscode

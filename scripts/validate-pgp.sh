@@ -36,17 +36,7 @@ for dir in "${PGP_CONFIG_DIR}" "${KEY_CONFIG_DIR}"; do
     log "Directory ${dir} exists with correct permissions"
 done
 
-# Check if key files or GPG keys are already present
-if [ -f "${PRIVATE_KEY}" ] && [ -f "${PUBLIC_KEY}" ]; then
-    log "Key files ${PRIVATE_KEY} and ${PUBLIC_KEY} already exist. Skipping key generation."
-elif gpg --list-secret-keys --keyid-format LONG &> /dev/null; then
-    log "GPG keyring already contains secret keys. Skipping key generation."
-else
-    log "No existing keys found. This script is only for validation, no key generation is implemented here."
-    exit 1
-fi
-
-# Check key file permissions
+# Check key files
 for key_file in "${PRIVATE_KEY}" "${PUBLIC_KEY}"; do
     if [ ! -f "${key_file}" ]; then
         log "ERROR: Key file ${key_file} does not exist"
@@ -85,7 +75,7 @@ if ! gpg --sign /tmp/test-message &> /dev/null; then
 fi
 
 # Verify signature
-if ! gpg --verifySignature /tmp/test-message.gpg &> /dev/null; then
+if ! gpg --verify /tmp/test-message.gpg &> /dev/null; then
     log "ERROR: Failed to verify test message signature"
     rm -f /tmp/test-message /tmp/test-message.gpg
     exit 1
