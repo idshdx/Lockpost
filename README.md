@@ -1,14 +1,27 @@
-# PGP Reply Symfony Application
+# SYM.PGP.ONY
 
 ### About
 
-PGP Reply is a secure web application that allows users to generate unique links for receiving PGP-encrypted messages. The application is built with Symfony and provides a simple way for people to send you encrypted messages without needing to understand the complexities of PGP encryption.
+SYM.PGP.ONY is a secure web application that allows users to generate links that can be shared with pople who can reply back in a confidential manner.
+
+The application is built with Symfony and provides a simple way for people to send you encrypted messages without needing to understand the complexities of encryption.
 
 ### Why
 
-The app solves a common problem: receiving sensitive information securely from people who aren't familiar with PGP encryption. By generating a unique link that you can share, anyone can send you encrypted messages that only you can read, without needing to understand the technical details of PGP.
+The app solves a common problem for some: receiving sensitive information securely from people who aren't familiar with the ways of doing so.
+By generating a unique secure link that you can share, anyone can send you PGP encrypted messages that only you can read, without the parties needing to understand the technical details.
 
 
+### How It Works
+
+1. You generate a unique secure link through the app by providing your email address
+2. The app verifies your public PGP key from common key servers
+3. Share the generated link with someone who needs to send you sensitive information
+4. When they visit the link, they can type their message in a secure form
+5. The message is encrypted in their browser using your public PGP key
+6. The encrypted message is submitted to the server where its being signed and forwarded to your email address
+7. You can decrypt the message using your private PGP key
+8. You can check the signature of the server, so that you are sure the messge was not tampered with and that is was not sent by someone else.
 
 ### What's PGP?
 
@@ -17,30 +30,67 @@ PGP (Pretty Good Privacy) is an encryption technology used for:
 - Digital signatures
 - Secure communication
 
-The application uses PGP's public-key cryptography to ensure that only the intended recipient can read the messages. To use the application, you need to:
-
-1. Have a PGP key pair (public and private keys)
-2. Publish your public key on common key servers
-3. Keep your private key secure and never share it
+The application uses mainly PGP with less other cryptography, to ensure that the communication is secure, having the end goal of the recipient being to receive, prove and read the messagess securely.
 
 You can learn more about generating and managing PGP keys on the application's help page.
+Further more, you can also get server's key meterial, prove messages, signatures and experiment with PGP, separate from the app usage.
 
 
-### How It Works
-
-1. You generate a unique link through the app by providing your email address
-2. The app verifies your public PGP key from common key servers
-3. Share the generated link with someone who needs to send you sensitive information
-4. When they visit the link, they can type their message in a secure form
-5. The message is encrypted in their browser using your public PGP key
-6. The encrypted message is sent to your email address
-7. You can decrypt the message using your private PGP key
 
 ### Security Features
 
-- **End-to-End Encryption**: All messages are encrypted in the browser using OpenPGP.js before being sent
-- **Zero Storage**: No messages are stored on the server - they are only forwarded to your email
-- **Client-Side Encryption**: Messages are encrypted on the sender's browser using your public key
+- **End-to-End Encryption**: All messages are encrypted while in transit over insecure channels
+- **Client-Side Encryption**: Messages are encrypted on the sender's browse
+- **Server-Side Signing** The application implements server-side PGP signing of all outgoing encrypted messages before forwarding them
+- **Best tech** The latest cryptography is used to enrypted messages, using the public key that was  decoded from the shared link before being sent the server
+- **Zero Storage**: No messages are stored on the server - they are signed with its keys first then forwarded to your mailbox
+- **No tracking** The server keeps the logs in memory, not on the fylesystem, it does not store any information at all, no database, no caching, no sessions
+- **No cookies** No analytics, no data, there is no legal need for a privacy policy.
+- **No anti-features** Simple design and straight farward usage. No need for guidance, no banners to close, no fancy or extra features.
+- **No licence** Free and open source software that you can check, hack and self host.
+- **Free as in Liberty** Made in the spirit and inspiration #cyberpunks manifesto
+
+
+### Server-Side Message Signing
+
+To enhance security and message authenticity, the application implements server-side PGP signing of all outgoing encrypted messages. This feature provides several benefits:
+
+- **Message Authentication**: Recipients can verifySignaturePage that messages were actually processed by our server
+- **Tampering Detection**: Any modifications to the message during transit can be detected
+- **Trust Chain**: Creates a verifiable chain of trust from sender through our service to recipient
+
+using OpenPGP.js key rotations
+CRFT tokens and OWASP protections
+
+**Security Considerations**:
+   - The server's private key is protected and never exposed to users
+   - The signing process occurs in isolated environment
+   - Regular key rotation policies are enforced
+   - The shared links are generated in the most secure way on the server possible and have an expiration date
+   - The information used by the server to generate an encryption token is already willingly available in public
+
+#### Technical Implementation
+
+using OpenPGP.js
+
+The signing process is handled by the `PgpSigningService` and involves these key components:
+
+1. **Server Key Management**:
+   - Server maintains its own PGP key pair in the `config/pgp/` directory
+   - Private key is securely stored and used only for message signing
+   - Public key is freely available via the `/public-key` endpoint
+
+2. **Signing Process**:
+   - Encrypted messages are signed using the server's private key
+   - Signing occurs after browser-side encryption but before email delivery
+   - Implementation uses GnuPG through secure PHP bindings
+
+### Requirements
+For the initiator of the communication to use the application it needs to:
+
+1. Have a PGP key pair
+2. Publish your public key on common key servers
+3. Securely keep your private key in order the decrypt the message being received.
 
 ### Development Setup
 
@@ -69,32 +119,6 @@ The application uses MailHog for testing email delivery in the development envir
    - Recipient email address
    - Email headers and metadata
 
-### Server-Side Message Signing
-
-To enhance security and message authenticity, the application implements server-side PGP signing of all outgoing encrypted messages. This feature provides several benefits:
-
-- **Message Authentication**: Recipients can verifySignaturePage that messages were actually processed by our server
-- **Tampering Detection**: Any modifications to the message during transit can be detected
-- **Trust Chain**: Creates a verifiable chain of trust from sender through our service to recipient
-
-#### Technical Implementation
-
-The signing process is handled by the `PgpSigningService` and involves these key components:
-
-1. **Server Key Management**:
-   - Server maintains its own PGP key pair in the `config/pgp/` directory
-   - Private key is securely stored and used only for message signing
-   - Public key is freely available via the `/public-key` endpoint
-
-2. **Signing Process**:
-   - Encrypted messages are signed using the server's private key
-   - Signing occurs after browser-side encryption but before email delivery
-   - Implementation uses GnuPG through secure PHP bindings
-
-3. **Security Considerations**:
-   - Server's private key is protected and never exposed to users
-   - Signing process occurs in isolated environment
-   - Regular key rotation policies are enforced
 
 #### Configuration
 
@@ -154,6 +178,61 @@ During development, several challenges were addressed:
    - Considered Hardware Security Modules
    - May be implemented in future versions
    - Currently unnecessary for security requirements
+
+
+
+---
+
+Future Enhancements
+
+The following features are planned for future releases:
+1. HSM (Hardware Security Module) Integration:
+   - Enhance security by using hardware-based key storage.
+   - Improve performance for high-volume message signing.
+
+2. Mobile App Support:
+   - Develop a mobile-friendly interface.
+   - Add support for push notifications and QR code-based secure link sharing.
+
+3. Advanced Analytics:
+   - Provide optional analytics for self-hosted instances.
+   - Include message delivery statistics and error reports.
+
+4. Localization:
+   - Add support for multiple languages.
+   - Allow users to contribute translations.
+
+5. Automatic Key Management:
+   - Implement automated key rotation.
+   - Notify users of upcoming key expiration dates.
+
+---
+
+Known Limitations
+
+While the application is robust and secure, there are some limitations:
+1. Dependency on Public Key Servers:
+   - If a key server is unavailable, users may face delays in link generation.
+   - Future versions may include a fallback mechanism.
+
+2. Browser-Side Encryption:
+   - Relies on the user's browser to perform encryption.
+   - Users with outdated browsers may experience compatibility issues.
+
+3. Email Delivery:
+   - Relies on the configured SMTP server for email delivery.
+   - Ensure your server is properly configured to avoid spam filtering.
+
+---
+
+Support
+
+If you encounter any issues or have questions, feel free to:
+- Open an issue on our GitHub repository.
+- Join the community discussion on our forums.
+- Reach out via email for direct support.
+
+---
 
 ### Contributing
 
