@@ -7,6 +7,8 @@ parameters:
     app.mail_from: 'noreply@example.com'
     app.pgp.private_key_path: '%kernel.project_dir%/config/pgp/private.key'
     app.pgp.private_key_passphrase: '%env(PGP_PRIVATE_KEY_PASSPHRASE)%'
+    app.pgp.key_config_path: '%kernel.project_dir%/config/pgp/key-config'
+    app.pgp.public_key_path: '%kernel.project_dir%/config/pgp/public.key'
 
 services:
     # default configuration for services in *this* file
@@ -32,4 +34,6 @@ services:
     App\Service\PgpSigningService:
         arguments:
             $privateKeyPath: '%app.pgp.private_key_path%'
-            $privateKeyPassphrase: '%app.pgp.private_key_passphrase%'
+            $passphrase: '%app.pgp.private_key_passphrase%'
+            $keyConfigPath: '%app.pgp.key_config_path%'
+            $publicKeyPath: '%app.pgp.public_key_path%'

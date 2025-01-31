@@ -50,42 +50,56 @@
             </div>
 
             {{ form_start(form, {'attr': {'class': 'mb-4'}}) }}
+
             <div class="mb-3">
                 {{ form_label(form.message, 'Message', {'label_attr': {'class': 'form-label'}}) }}
                 <div class="copy-section d-flex">
-                    {{ form_widget(form.message, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    {{ form_widget(form.message, {'attr': {'class': form_errors(form.message)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
                     <button type="button" class="btn btn-outline-secondary copy-button" data-target="message">
                         Copy
                     </button>
                 </div>
-                {{ form_errors(form.message) }}
+                {% if form_errors(form.message)|length > 0 %}
+                    <div class="invalid-feedback">
+                        {{ form_errors(form.message) }}
+                    </div>
+                {% endif %}
             </div>
 
             <div class="mb-3">
                 {{ form_label(form.signature, 'PGP Signature', {'label_attr': {'class': 'form-label'}}) }}
                 <div class="copy-section d-flex">
-                    {{ form_widget(form.signature, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    {{ form_widget(form.signature, {'attr': {'class': form_errors(form.signature)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
                     <button type="button" class="btn btn-outline-secondary copy-button" data-target="signature">
                         Copy
                     </button>
                 </div>
-                {{ form_errors(form.signature) }}
+                {% if form_errors(form.signature)|length > 0 %}
+                    <div class="invalid-feedback">
+                        {{ form_errors(form.signature) }}
+                    </div>
+                {% endif %}
             </div>
 
             <div class="mb-3">
                 {{ form_label(form.public_key, 'Public Key', {'label_attr': {'class': 'form-label'}}) }}
                 <div class="copy-section d-flex">
-                    {{ form_widget(form.public_key, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    {{ form_widget(form.public_key, {'attr': {'class': form_errors(form.public_key)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
                     <button type="button" class="btn btn-outline-secondary copy-button" data-target="public_key">
                         Copy
                     </button>
                 </div>
-                {{ form_errors(form.public_key) }}
+                {% if form_errors(form.public_key)|length > 0 %}
+                    <div class="invalid-feedback">
+                        {{ form_errors(form.public_key) }}
+                    </div>
+                {% endif %}
             </div>
 
             <div class="d-grid gap-2">
                 <button type="submit" class="btn btn-primary">Verify Signature</button>
             </div>
+
             {{ form_end(form) }}
 
             <div class="text-center mt-4">
@@ -97,16 +111,16 @@
 
 {% block javascripts %}
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const copyButtons = document.querySelectorAll('.copy-button');
-            copyButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const target = button.getAttribute('data-target');
-                    const textarea = document.querySelector(`#pgp_verify_signature_form_${target}`);
-                    textarea.select();
-                    document.execCommand('copy');
-                });
-            });
-        });
+			document.addEventListener('DOMContentLoaded', () => {
+				const copyButtons = document.querySelectorAll('.copy-button');
+				copyButtons.forEach(button => {
+					button.addEventListener('click', () => {
+						const target = button.getAttribute('data-target');
+						const textarea = document.querySelector(`#pgp_verify_signature_form_${target}`);
+						textarea.select();
+						document.execCommand('copy');
+					});
+				});
+			});
     </script>
 {% endblock %}

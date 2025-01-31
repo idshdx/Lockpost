@@ -18,7 +18,7 @@ class PgpKeyServiceTest extends TestCase
 
     public function testVerifyPublicKeyExistsValidEmail(): void
     {
-        $email = 'test@example.com';
+        $email = 'idzer0lis@gmail.com';
         $this->assertTrue($this->pgpKeyService->verifyPublicKeyExists($email));
     }
 
@@ -30,7 +30,7 @@ class PgpKeyServiceTest extends TestCase
 
     public function testGetPublicKeyByEmailValidEmail(): void
     {
-        $email = 'test@example.com';
+        $email = 'idzer0lis@gmail.com';
         $publicKey = $this->pgpKeyService->getPublicKeyByEmail($email);
         $this->assertNotEmpty($publicKey);
         $this->assertStringContainsString('BEGIN PGP PUBLIC KEY BLOCK', $publicKey);
@@ -40,13 +40,15 @@ class PgpKeyServiceTest extends TestCase
     {
         $email = 'invalid-email';
         $this->expectException(AppException::class);
+        $this->expectExceptionMessage('Invalid email address format');
         $this->pgpKeyService->getPublicKeyByEmail($email);
     }
 
     public function testGetPublicKeyByEmailNoPublicKeyFound(): void
     {
-        $email = 'email-with-no-public-key@example.com';
+        $email = 'no-public-key-' . uniqid() . '@example.com';
         $this->expectException(AppException::class);
+        $this->expectExceptionMessage('No public key found for the provided email address');
         $this->pgpKeyService->getPublicKeyByEmail($email);
     }
 }

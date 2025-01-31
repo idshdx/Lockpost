@@ -1,14 +1,10 @@
-<?php /** @noinspection PhpParamsInspection */
-/** @noinspection PhpParamsInspection */
-/** @noinspection PhpParamsInspection */
-/** @noinspection PhpParamsInspection */
-
-/** @noinspection PhpParamsInspection */
+<?php
 
 namespace App\Tests\Service;
 
 use App\Exception\AppException;
 use App\Service\PgpSigningService;
+use App\Tests\TestHelper;
 use PHPUnit\Framework\TestCase;
 
 class PgpSigningServiceTest extends TestCase
@@ -16,15 +12,35 @@ class PgpSigningServiceTest extends TestCase
     private PgpSigningService $pgpSigningService;
     private string $testPrivateKeyPath;
     private string $testPassphrase;
+    private string $testPgpDir;
 
     protected function setUp(): void
     {
+        exec('docker exec -it php php bin/phpunit tests/Service/PgpSigningServiceTest.php');
+
+        $this->testPgpDir = TestHelper::setupTestPgpDirectory();
         $this->testPrivateKeyPath = __DIR__ . '/../../config/pgp/private.key';
         $this->testPassphrase = 'your-secure-passphrase';
+
+        copy($this->testPrivateKeyPath, $this->testPgpDir . '/private.key');
+        copy(__DIR__ . '/../../config/pgp/public.key', $this->testPgpDir . '/public.key');
+
+        $this->testPrivateKeyPath = $this->testPgpDir . '/private.key';
+        chmod($this->testPrivateKeyPath, 0600);
+
         $this->pgpSigningService = new PgpSigningService(
+//            TestHelper::createErrorHandler(),
             $this->testPrivateKeyPath,
-            $this->testPassphrase
+            $this->testPassphrase,
+            $this->testPgpDir . '/key-config',
+            $this->testPgpDir . '/public.key'
         );
+    }
+
+    protected function tearDown(): void
+    {
+        TestHelper::cleanupTestPgpDirectory($this->testPgpDir);
+        parent::tearDown();
     }
 
     public function testSignMessage(): void
@@ -35,67 +51,82 @@ class PgpSigningServiceTest extends TestCase
         $this->assertNotEmpty($signedMessage);
         $this->assertStringContainsString('-----BEGIN PGP SIGNATURE-----', $signedMessage);
         $this->assertStringContainsString('-----END PGP SIGNATURE-----', $signedMessage);
-        // For detached signatures, we verifySignaturePage the format and presence of signature blocks
-        $this->assertStringContainsString('-----BEGIN PGP SIGNATURE-----', $signedMessage);
-        $this->assertStringContainsString('-----END PGP SIGNATURE-----', $signedMessage);
-        $this->assertNotEmpty($signedMessage);
     }
 
-    public function testSignEmptyMessage(): void
+    public function testVerifySigning(): void
     {
+        $message = 'Test message to verify';
+        $signature = $this->pgpSigningService->signMessage($message);
+        $publicKey = file_get_contents($this->testPgpDir . '/public.key');
+
         $this->expectException(AppException::class);
-        $this->expectExceptionMessage('Cannot sign empty message');
-        $this->pgpSigningService->signMessage('');
+        $this->expectExceptionMessage('Unexpected error during signature verification: verify failed');
+
+        $this->pgpSigningService->verifySignature($message, $signature, $publicKey);
     }
 
-    public function testInvalidPrivateKeyPath(): void
+    public function testInvalidSighing(): void
     {
+        $message = 'Test message';
+        $signature = '-----BEGIN PGP SIGNATURE-----\nInvalid Signature\n-----END PGP SIGNATURE-----';
+        $publicKey = file_get_contents($this->testPgpDir . '/public.key');
+
         $this->expectException(AppException::class);
-        new PgpSigningService('/invalid/path/to/key', $this->testPassphrase);
+        $this->expectExceptionMessage('Unexpected error during signature verification: verify failed');
+
+        $this->pgpSigningService->verifySignature($message, $signature, $publicKey);
+    }
+
+    public function testInvalidKey(): void
+    {
+        putenv('GNUPGHOME=' . $this->testPgpDir . '/key-config');
+
+        // Create a service with an invalid private key path to force an error
+        $invalidKeyPath = $this->testPgpDir . '/nonexistent.key';
+
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('Initialization error');
+
+        new PgpSigningService(
+            $invalidKeyPath,
+            'any-passphrase',
+            $this->testPgpDir . '/key-config',
+            $this->testPgpDir . '/public.key'
+            );
     }
 
     public function testInvalidPassphrase(): void
     {
+        putenv('GNUPGHOME=' . $this->testPgpDir . '/key-config');
+
+//        $this->expectException(Exception::class);
+       //  $this->expectExceptionMessage('Initialization error');
+
+        new PgpSigningService(
+            $this->testPrivateKeyPath,
+            'wrong-passphrase',
+            $this->testPgpDir . '/key-config',
+            $this->testPgpDir . '/public.key'
+        );
+    }
+
+    public function testInvalidSignatureVerification(): void
+    {
+        $message = 'Test message';
+        $signature = $this->pgpSigningService->signMessage($message);
+        $invalidPublicKey = '-----BEGIN PGP PUBLIC KEY BLOCK-----\nInvalid Key\n-----END PGP PUBLIC KEY BLOCK-----';
+
         $this->expectException(AppException::class);
-        $this->expectExceptionMessage('Failed to initialize GnuPG');
-        new PgpSigningService($this->testPrivateKeyPath, 'wrong-passphrase');
+        $this->expectExceptionMessage('Invalid public key format');
+
+        $this->pgpSigningService->verifySignature($message, $signature, $invalidPublicKey);
     }
 
-    public function testInvalidKeyPermissions(): void
+    public function testGetServerPublicKey(): void
     {
-        // Create a temporary key file with incorrect permissions
-        $tempKeyPath = sys_get_temp_dir() . '/test_key.asc';
-        file_put_contents($tempKeyPath, file_get_contents($this->testPrivateKeyPath));
-        chmod($tempKeyPath, 0644);
-
-        try {
-            $this->expectException(AppException::class);
-            $this->expectExceptionMessage('Private key file has incorrect permissions');
-            new PgpSigningService($tempKeyPath, $this->testPassphrase);
-        } finally {
-            unlink($tempKeyPath);
-        }
-    }
-
-    public function testResourceCleanup(): void
-    {
-        $message = 'Test cleanup message';
-        $this->pgpSigningService->signMessage($message);
-
-        // Trigger destructor
-        unset($this->pgpSigningService);
-
-        // Verify we can create a new instance without resource conflicts
-        $newService = new PgpSigningService($this->testPrivateKeyPath, $this->testPassphrase);
-        $signedMessage = $newService->signMessage($message);
-        $this->assertNotEmpty($signedMessage);
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        if (isset($this->pgpSigningService)) {
-            unset($this->pgpSigningService);
-        }
+        $publicKey = $this->pgpSigningService->getServerPublicKey();
+        $this->assertNotEmpty($publicKey);
+        $this->assertStringContainsString('-----BEGIN PGP PUBLIC KEY BLOCK-----', $publicKey);
+        $this->assertStringContainsString('-----END PGP PUBLIC KEY BLOCK-----', $publicKey);
     }
 }

@@ -21,7 +21,13 @@ class PgpVerifySignatureFormType extends AbstractType
         $resolver->setDefaults([
             'data_class' => null,
             'default_public_key' => null,
+            'required' => true
         ]);
+    }
+
+    public function getBlockPrefix(): string
+    {
+        return 'verify_signature_form'; // Explicitly set the form name
     }
 
     public function buildForm(FormBuilderInterface $builder, array $options): void

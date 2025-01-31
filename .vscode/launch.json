@@ -1,19 +1,15 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
     "configurations": [
         {
+            "hostname": "0.0.0.0",
+            "log": true,
             "name": "Docker: Listen for Xdebug",
-            "type": "php",
-            "request": "launch",
-            "port": 9003,
             "pathMappings": {
                 "/var/www/html": "${workspaceFolder}"
             },
-            "hostname": "0.0.0.0",
-            "log": true,
+            "port": 9003,
+            "request": "launch",
+            "type": "php",
             "xdebugSettings": {
                 "max_children": 128,
                 "max_data": 512,
@@ -21,27 +17,31 @@
             }
         },
         {
+            "cwd": "${workspaceRoot}/public",
+            "env": {
+                "APP_DEBUG": "1",
+                "APP_ENV": "dev"
+            },
+            "envFile": "../.env",
             "name": "Launch built-in server and Debug",
-            "type": "php",
-            "request": "launch",
             "noDebug": false,
+            "request": "launch",
             "runtimeArgs": [
                 "-S",
                 "localhost:8000",
                 "-t",
                 "."
             ],
-            "cwd": "${workspaceRoot}/public",
             "serverReadyAction": {
                 "action": "openExternally",
                 "pattern": "Development Server \\(http://localhost:([0-9]+)\\) started",
                 "uriFormat": "http://localhost:%s"
             },
-            "env": {
-                "APP_ENV": "dev",
-                "APP_DEBUG": "1"
-            },
-            "envFile": "../.env"
+            "type": "php"
         }
-    ]
+    ],
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0"
 }

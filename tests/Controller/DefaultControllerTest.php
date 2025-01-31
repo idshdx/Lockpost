@@ -2,121 +2,64 @@
 
 namespace App\Tests\Controller;
 
-use App\Service\PgpSigningService;
-use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class DefaultControllerTest extends WebTestCase
 {
-    private $client;
-    private $pgpSigningService;
-
-    protected function setUp(): void
+    public function testIndexPage(): void
     {
-        parent::setUp();
-        $this->client = static::createClient();
-        $this->pgpSigningService = $this->createMock(PgpSigningService::class);
-        self::getContainer()->set(PgpSigningService::class, $this->pgpSigningService);
-    }
-
-    public function testVerifyPageLoads(): void
-    {
-        $crawler = $this->client->request('GET', '/verify');
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="pgp_verify_form"]');
-    }
-
-    public function testVerifyValidSignature(): void
-    {
-        $this->pgpSigningService
-            ->expects($this->once())
-            ->method('verifySignature')
-            ->willReturn(true);
-
-        $formData = [
-            'pgp_verify_form' => [
-                'message' => 'Test message',
-                'signature' => '-----BEGIN PGP SIGNATURE-----\nTest Signature\n-----END PGP SIGNATURE-----',
-                'public_key' => '-----BEGIN PGP PUBLIC KEY BLOCK-----\nTest Public Key\n-----END PGP PUBLIC KEY BLOCK-----'
-            ]
-        ];
-
-        $this->client->request('POST', '/verify', $formData);
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.alert-success');
-        self::assertSelectorTextContains('.alert-success', 'Message signature is valid');
+        // Ensure the correct form name
+        self::assertSelectorExists('form[name="email_form"]');
     }
 
-    public function testVerifyInvalidSignature(): void
+    public function testVerifyPage(): void
     {
-        $this->pgpSigningService
-            ->expects($this->once())
-            ->method('verifySignature')
-            ->willReturn(false);
-
-        $formData = [
-            'pgp_verify_form' => [
-                'message' => 'Test message',
-                'signature' => '-----BEGIN PGP SIGNATURE-----\nInvalid Signature\n-----END PGP SIGNATURE-----',
-                'public_key' => '-----BEGIN PGP PUBLIC KEY BLOCK-----\nTest Public Key\n-----END PGP PUBLIC KEY BLOCK-----'
-            ]
-        ];
-
-        $this->client->request('POST', '/verify', $formData);
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/verify');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.alert-warning');
-        self::assertSelectorTextContains('.alert-warning', 'Message signature is invalid');
+        self::assertSelectorExists('form[name="verify_signature_form"]');
     }
 
-    public function testVerifyWithError(): void
+    public function testValidFormSubmission(): void
     {
-        $this->pgpSigningService
-            ->expects($this->once())
-            ->method('verifySignature')
-            ->willThrowException(new Exception('Verification error'));
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/verify');
 
-        $formData = [
-            'pgp_verify_form' => [
-                'message' => 'Test message',
-                'signature' => '-----BEGIN PGP SIGNATURE-----\nTest Signature\n-----END PGP SIGNATURE-----',
-                'public_key' => '-----BEGIN PGP PUBLIC KEY BLOCK-----\nTest Public Key\n-----END PGP PUBLIC KEY BLOCK-----'
-            ]
-        ];
+        $form = $crawler->selectButton('Verify Signature')->form([
+            'verify_signature_form[message]' => 'Test message',
+            'verify_signature_form[signature]' => 'Test signature',
+            'verify_signature_form[public_key]' => 'Test public key'
+        ]);
 
-        $this->client->request('POST', '/verify', $formData);
+        $client->submit($form);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.alert-danger');
-        self::assertSelectorTextContains('.alert-danger', 'Error verifying message');
+        self::assertRouteSame  ('app_verify'); // Match actual route name
     }
 
     public function testInvalidFormSubmission(): void
     {
-        $formData = [
-            'pgp_verify_form' => [
-                'message' => '',
-                'signature' => '',
-                'public_key' => ''
-            ]
-        ];
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/verify');
 
-        $this->client->request('POST', '/verify', $formData);
+        $form = $crawler->selectButton('Verify Signature')->form();
 
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.invalid-feedback');
-    }
+        // Submit the form with invalid data
+        $form['verify_signature_form[public_key]'] = 'Invalid Public Key';
+        $form['verify_signature_form[message]'] = '';
+        $form['verify_signature_form[signature]'] = 'Invalid Signature';
 
-    public function testFallbackForMissingRoutes(): void
-    {
-        // Testing the rendering with a missing route to verify graceful handling.
-        // This ensures missing routes like 'app_public_key' do not break the tests.
-
-        $crawler = $this->client->request('GET', '/verify');
+        $crawler = $client->submit($form);
 
         self::assertResponseIsSuccessful();
-        // Ensure no errors are visible on the page
-        self::assertStringNotContainsString('Unable to generate a URL for the named route', $this->client->getResponse()->getContent());
+
+        // Assert that at least one .invalid-feedback message is displayed
+        $this->assertGreaterThan(0, $crawler->filter('.invalid-feedback')->count(), 'Expected .invalid-feedback class to be rendered.');
     }
+
 }

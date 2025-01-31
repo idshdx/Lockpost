@@ -13,7 +13,6 @@ class PgpSigningService
     private string $passphrase;
     private string $keyConfigPath;
     private string $publicKeyPath;
-    private ErrorHandler $errorHandler;
     private const GNUPG_SIGSUM_VALID = 0;
 
 /**
@@ -31,13 +30,11 @@ class PgpSigningService
  * @throws AppException If GnuPG initialization fails due to an invalid passphrase.
  */
     public function __construct(
-        ErrorHandler $errorHandler,
         string $privateKeyPath,
         string $passphrase,
         string $keyConfigPath,
         string $publicKeyPath
     ) {
-        $this->errorHandler = $errorHandler;
         $this->privateKeyPath = $privateKeyPath;
         $this->passphrase = $passphrase;
         $this->keyConfigPath = $keyConfigPath;
@@ -46,7 +43,7 @@ class PgpSigningService
         try {
             $this->initializeGnuPG();
         } catch (Exception $e) {
-            throw new AppException('Failed to initialize GnuPG: Invalid passphrase');
+            throw new AppException('Initialization error');
         }
     }
 
@@ -69,21 +66,25 @@ class PgpSigningService
         try {
             $privateKeyData = file_get_contents($this->privateKeyPath);
             if ($privateKeyData === false) {
-                throw new AppException('Failed to read private key file');
+                throw new AppException('Private key not found');
             }
 
             $privateKeyInfo = $gpg->import($privateKeyData);
             if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
-                throw new AppException('Failed to import private key');
+                throw new AppException('Private key mismatch');
             }
 
-            $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
-            return $gpg;
-        } catch (Exception $e) {
-            if (str_contains($e->getMessage(), 'BAD_PASSPHRASE')) {
-                throw new AppException('Failed to initialize GnuPG: Invalid passphrase');
+            try {
+                $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
+            } catch (Exception $e) {
+                throw new AppException('Invalid passphrase');
             }
-            throw new AppException('Failed to initialize GnuPG: ' . $e->getMessage());
+
+            return $gpg;
+        } catch (AppException $e) {
+            throw $e;
+        } catch (Exception $e) {
+            throw new AppException('Initialization error');
         }
     }
 
@@ -101,11 +102,11 @@ class PgpSigningService
             $gpg = $this->initializeGnuPG();
             $signature = $gpg->sign($message);
             if ($signature === false) {
-                throw new AppException('Failed to sign message');
+                throw new AppException('Invalid signature error');
             }
             return $signature;
         } catch (Exception $e) {
-            throw new AppException('Failed to sign message: ' . $e->getMessage());
+            throw new AppException('Unexpected error during signing: ' . $e->getMessage());
         }
     }
 
@@ -126,33 +127,25 @@ class PgpSigningService
             $gpg = new gnupg();
             $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
-            try {
-                $keyInfo = $gpg->import($publicKey);
-                if (empty($keyInfo) || !isset($keyInfo['fingerprint'])) {
-                    return false;
-                }
-            } catch (Exception $e) {
-                return false;
+            $keyInfo = $gpg->import($publicKey);
+            if (empty($keyInfo) || !isset($keyInfo['fingerprint'])) {
+                throw new AppException('Invalid public key format');
             }
 
-            try {
-                $info = $gpg->verify($signature, $message);
-                if (!is_array($info) || empty($info)) {
-                    return false;
-                }
-
-                foreach ($info as $sig) {
-                    if (isset($sig['summary']) && $sig['summary'] === self::GNUPG_SIGSUM_VALID) {
-                        return true;
-                    }
-                }
-            } catch (Exception $e) {
-                return false;
+            $info = $gpg->verify($signature, $message);
+            if (!is_array($info) || empty($info)) {
+                throw new AppException('Verification error');
             }
 
-            return false;
+            foreach ($info as $sig) {
+                if (isset($sig['summary']) && $sig['summary'] === self::GNUPG_SIGSUM_VALID) {
+                    return true;
+                }
+            }
+
+            throw new AppException('Verification error');
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Unexpected error during signature verification');
+            throw new AppException('Unexpected error during signature verification: ' . $e->getMessage());
         }
     }
 
