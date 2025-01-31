@@ -1,11 +1,11 @@
 <?php /** @noinspection UnnecessaryAssertionInspection */
 
-namespace App\Tests\Service;
+namespace App\Tests;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpKernel\KernelInterface;
 
-class SymfonyBootstrapTest extends WebTestCase
+class BootstrapTest extends WebTestCase
 {
     public function testKernelBootsSuccessfully(): void
     {

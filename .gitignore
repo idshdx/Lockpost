@@ -30,3 +30,6 @@ docker/mysql
 .fleet/
 .cache
 .vscode
+
+# windsurf rules
+.windsurfrules

@@ -6,7 +6,7 @@
     <title>Email with PGP</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial, Helvetica, sans-serif;
             line-height: 1.6;
             margin: 0;
             padding: 0;
@@ -29,11 +29,6 @@
             padding: 20px;
         }
 
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
         .section-title {
             color: #495057;
             font-size: 18px;
@@ -42,7 +37,7 @@
         }
 
         .pgp-content {
-            font-family: 'Courier New', monospace;
+            font-family: 'Courier New', monospace, monospace;
             background-color: #f1f3f5;
             border: 1px solid #ced4da;
             padding: 15px;
@@ -72,36 +67,6 @@
             transform: scale(1.05);
         }
 
-        .download-button {
-            background-color: #007bff;
-        }
-
-        .download-button:hover {
-            background-color: #0056b3;
-        }
-
-        .copy-button {
-            background-color: #28a745;
-        }
-
-        .copy-button:hover {
-            background-color: #218838;
-        }
-
-
-        .copy-feedback {
-            color: #28a745;
-            font-weight: bold;
-            margin-left: 10px;
-            display: inline-block;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .copy-button.copied .copy-feedback {
-            opacity: 1;
-        }
-
         .divider {
             border-top: 2px dashed #dee2e6;
             margin: 30px 0;
@@ -111,7 +76,7 @@
             background-color: #f8f9fa;
             color: #007bff;
             border: 1px solid #ced4da;
-            padding: 10px 15px;
+            padding: 10px;
             font-size: 16px;
             font-weight: bold;
             text-align: left;
@@ -138,26 +103,8 @@
             transform: rotate(45deg);
         }
 
-        .toggle-indicator {
-            font-weight: bold;
-            font-size: 18px;
-            transition: transform 0.2s ease;
-        }
-
-        .content {
+        .hidden {
             display: none;
-            overflow: hidden;
-            padding: 15px;
-            border: 1px solid #dee2e6;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            margin-top: 5px;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .content pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
         }
 
         @keyframes fadeIn {
@@ -175,111 +122,111 @@
 <body>
 <h1>PGP-Secure Message</h1>
 <div class="container">
+
+    <div class="divider"></div>
+
     <div class="message-container">
         <div class="section-title">Here is your PGP-secured message:</div>
-        <div class="pgp-content" id="encrypted-message">
-           <pre> {{ encrypted_message | e}} </pre>
-        </div>
-        <div class="button-actions">
-            <button class="button copy-button" onclick="copyToClipboard('encrypted-message')">Copy Message<span
-                        class="copy-feedback">Copied!</span></button>
-
-            <a class="button download-button"
-               href="data:text/plain;charset=utf-8,{{ encrypted_message | e('url') }}"
-               download="encrypted-message.txt">
-                Download the Message as .txt
-            </a>
+        <div class="pgp-content" id="message-and-signature">
+            <pre>{{ message_signature | e }}</pre>
         </div>
     </div>
 
     <div class="divider"></div>
 
-    <button class="collapsible">
-        Show/Hide the Signature
+    <button class="collapsible" aria-expanded="false" aria-controls="content1">
+        Show/Hide just the Message
         <span class="toggle-indicator"> + </span>
     </button>
-    <div class="content">
-        <div class="section-title">The Signature:</div>
-        <div class="pgp-content" id="signature">
-           <pre>{{ signature | e}}</pre>
-        </div>
-
-        <div class="button-actions">
-            <button class="button copy-button" onclick="copyToClipboard('signature')">Copy Signature<span
-                        class="copy-feedback">Copied!</span>
-            </button>
-            <a class="button download-button"
-               href="data:text/plain;charset=utf-8,{{ signature | e('url') }}"
-               download="signature.asc">
-                Download the Signature
-            </a>
+    <div class="content hidden" id="content1">
+        <div class="section-title">The Encrypted Message:</div>
+        <div class="pgp-content" id="encrypted-message">
+            <pre>{{ message | e }}</pre>
         </div>
     </div>
 
     <div class="divider"></div>
 
-    <button class="collapsible">
+    <button class="collapsible" aria-expanded="false" aria-controls="content2">
         Show/Hide the Signing Key
         <span class="toggle-indicator"> + </span>
     </button>
-    <div class="content">
+    <div class="content hidden" id="content2">
         <div class="section-title">The Server's Public Key:</div>
         <div class="pgp-content" id="server_public_key">
-           <pre> {{ server_public_key | e}}</pre>
-        </div>
-        <div class="button-actions">
-            <button class="button copy-button" onclick="copyToClipboard('server_public_key')">Copy Signing Key<span
-                        class="copy-feedback">Copied!</span></button>
-            <a class="button download-button"
-               href="data:text/plain;charset=utf-8,{{ server_public_key | e('url') }}"
-               download="public-key.asc">
-                Download the Public Key
-            </a>
-
+            <pre>{{ server_public_key | e }}</pre>
         </div>
     </div>
 
     <div class="divider"></div>
 
-    <div class="content">
-        <div class="section-title">PGP Verification Page</div>
-        <p>You can verifySignaturePage this PGP message and signature by visiting the link below:</p>
-        <a href="{{ app_verify_url }}">Click here to verifySignaturePage PGP</a>
+    <div class="button-actions">
+        <div>
+            <button class="button copy-button" onclick="copyToClipboard('message-and-signature')">
+                Copy Message and Signature<span class="copy-feedback">Copied!</span>
+            </button>
+            <button class="button copy-button" onclick="copyToClipboard('encrypted-message')">
+                Copy Message<span class="copy-feedback">Copied!</span>
+            </button>
+            <button class="button copy-button" onclick="copyToClipboard('server_public_key')">
+                Copy Server Key<span class="copy-feedback">Copied!</span>
+            </button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div>
+            <a class="button download-button"
+               href="data:text/plain;charset=utf-8,{{ message_signature | e('url') }}"
+               download="encrypted-message.asc">
+                Download the Message Signed .asc
+            </a>
+            <a class="button download-button"
+               href="data:text/plain;charset=utf-8,{{ message | e('url') }}"
+               download="message.txt">
+                Download the Message as .txt
+            </a>
+            <a class="button download-button"
+               href="data:text/plain;charset=utf-8,{{ server_public_key | e('url') }}"
+               download="public-key.asc">
+                Download the Public Key .asc
+            </a>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="message-container">
+            <p>You can verify the signature at the <a href="{{ app_verify_url }}" target="_blank" rel="noopener noreferrer">Verify PGP Page</a>.</p>
+        </div>
     </div>
 </div>
 
 <script>
-
-	document.addEventListener("DOMContentLoaded", function() {
+	document.addEventListener("DOMContentLoaded", function () {
 		const collapsibles = document.querySelectorAll(".collapsible");
 		collapsibles.forEach(button => {
 			button.addEventListener("click", () => {
+				const content = document.getElementById(button.getAttribute('aria-controls'));
+				const isHidden = content.classList.toggle("hidden");
+				button.setAttribute("aria-expanded", !isHidden);
 				button.classList.toggle("active");
-				const content = button.nextElementSibling;
-				if (content.style.display === "block") {
-					content.style.display = "none";
-				} else {
-					content.style.display = "block";
-				}
 			});
 		});
 	});
 
 	function copyToClipboard(elementId) {
 		const content = document.getElementById(elementId);
+		if (!content) {
+			alert("Element not found.");
+			return;
+		}
 		const textarea = document.createElement("textarea");
 		textarea.value = content.textContent.trim();
 		document.body.appendChild(textarea);
 		textarea.select();
 		document.execCommand("copy");
 		document.body.removeChild(textarea);
-
-		const button = event.target;
-		button.classList.add("copied");
-
-		setTimeout(() => {
-			button.classList.remove("copied");
-		}, 2000);
+		alert("Copied to clipboard!");
 	}
 </script>
 

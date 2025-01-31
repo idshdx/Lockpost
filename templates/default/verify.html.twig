@@ -3,10 +3,6 @@
 {% block title %}Verify PGP{% endblock %}
 
 {% block stylesheets %}
-    <!--suppress ALL -->
-
-
-
     <style>
         .copy-button {
             margin-left: 0.5rem;
@@ -35,110 +31,65 @@
     {{ parent() }}
     <div class="row justify-content-center">
         <div class="col-md-8">
-            {% for label, messages in app.flashes %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ label == 'error' ? 'danger' : label }} alert-dismissible fade show"
-                         role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endfor %}
             <div class="verification-guide" id="verification-guide">
                 <h4 class="mb-3">PGP Verification Guide</h4>
                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
                         data-bs-target="#verification-steps" aria-expanded="false" aria-controls="verification-steps">
                     Show / Hide
                 </button>
-                <div class="collapse show" id="verification-steps">
-                    <p class="text-muted">This verification process checks if the message was authentically signed
-                        using a provided public key as a signing key. A valid signature confirms the message's integrity
-                        and
-                        origin.</p>
-                    <ol class="verification-steps">
-                        <li>Open the email you received from our server</li>
-                        <li>Locate both the encrypted message (starts with "-----BEGIN PGP MESSAGE-----") and its
-                            signature starting with "-----BEGIN PGP SIGNATURE-----"
-                        </li>
-                        <li>Copy and paste the encrypted message into the "Encrypted Message" field below</li>
-                        <li>Copy and paste the signature into the "Message Signature" field</li>
-                        <li>Click "Verify Signature" to confirm the message's authenticity</li>
-                        <li>You can provide a custom signing key, that way you validate PGP in general</li>
-                    </ol>
-                    <p class="mt-3 mb-0">
-                        <small class="text-muted">
-                            Successful verification confirms that the message
-                            was processed and signed by our server and hasn't been tampered with.
-                        </small>
-                    </p>
+                <div class="collapse" id="verification-steps">
+                    <div class="mt-3">
+                        <ol class="verification-steps">
+                            <li>Enter the original message you received</li>
+                            <li>Enter the PGP signature that came with the message</li>
+                            <li>Enter the public key of the sender</li>
+                            <li>Click "Verify Signature" to check if the message is authentic</li>
+                        </ol>
+                    </div>
                 </div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="text-center">PGP Verification</h2>
+            {{ form_start(form, {'attr': {'class': 'mb-4'}}) }}
+            <div class="mb-3">
+                {{ form_label(form.message, 'Message', {'label_attr': {'class': 'form-label'}}) }}
+                <div class="copy-section d-flex">
+                    {{ form_widget(form.message, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="message">
+                        Copy
+                    </button>
                 </div>
-                <div class="card-body">
-                    {{ form_start(form) }}
-                    <div class="mb-3">
-                        <div>
-                            {{ form_label(form.public_key) }}
-                        </div>
-                        <div id="server-public-key">
-                                 {{ form_widget(form.public_key) }}
-                            </div>
-                        <br>
-                        <small class="text-muted">This field is pre-filled with our server's public key. You can use it
-                            as is to verifySignaturePage currently server-signed messages, or replace it with another PGP public
-                            signing key to verifySignaturePage signatures from other sources.</small>
-                        <br>
+                {{ form_errors(form.message) }}
+            </div>
 
-                        <div class="d-flex align-items-center">
-                            <a href="{{ path('app_verify_signature') }}"
-                               class="btn btn-outline-secondary download-button ms-2" download>
-                                Download
-                            </a>
-
-                            <a href="#" id="copy-public-key" class="btn btn-outline-secondary copy-button ms-2">Copy</a>
-
-                            <a href="javascript:void(0);" id="upload-public-key"
-                               class="btn btn-outline-secondary upload-button ms-2">
-                                Upload
-                            </a>
-
-                        </div>
-                        {{ form_errors(form.public_key) }}
-                    </div>
-
-                    <div class="mb-3">
-                        <div>
-                            {{ form_label(form.message) }}
-                        </div>
-                        <div id="pgp-message">
-                            {{ form_widget(form.message) }}
-                        </div>
-
-                        <div>
-                            {{ form_errors(form.message) }}
-                        </div>
-
-                    </div>
-
-                    <div class="mb-3">
-                        <div>
-                            {{ form_label(form.signature) }}
-                        </div>
-                        <div id="pgp-signature">
-                            {{ form_widget(form.signature) }}
-                        </div>
-                        {{ form_errors(form.signature) }}
-                    </div>
-
-                    <div class="mb-3">
-                        {{ form_widget(form.verify) }}
-                    </div>
-                    {{ form_end(form) }}
+            <div class="mb-3">
+                {{ form_label(form.signature, 'PGP Signature', {'label_attr': {'class': 'form-label'}}) }}
+                <div class="copy-section d-flex">
+                    {{ form_widget(form.signature, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="signature">
+                        Copy
+                    </button>
                 </div>
+                {{ form_errors(form.signature) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form_label(form.public_key, 'Public Key', {'label_attr': {'class': 'form-label'}}) }}
+                <div class="copy-section d-flex">
+                    {{ form_widget(form.public_key, {'attr': {'class': 'form-control', 'rows': '4'}}) }}
+                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="public_key">
+                        Copy
+                    </button>
+                </div>
+                {{ form_errors(form.public_key) }}
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">Verify Signature</button>
+            </div>
+            {{ form_end(form) }}
+
+            <div class="text-center mt-4">
+                <p>Want to send a signed message? <a href="{{ path('app_home') }}">Click here</a></p>
             </div>
         </div>
     </div>
@@ -146,67 +97,16 @@
 
 {% block javascripts %}
     <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const publicKeyInput = document.querySelector('#server-public-key textarea');
-	            const messageInput = document.querySelector('#pgp-message textarea');
-	            const signatureInput = document.querySelector('#pgp-signature textarea');
-
-	            const form = document.getElementById('verifySignaturePage-form');
-	            const uploadButton = document.getElementById('upload-public-key');
-	            const copyButton = document.getElementById('copy-public-key');
-
-	            copyButton.addEventListener('click', () => {
-		            const tempTextArea = document.createElement('textarea');
-		            tempTextArea.value = publicKeyInput.textContent || publicKeyInput.value;
-		            document.body.appendChild(tempTextArea);
-		            tempTextArea.select();
-		            document.execCommand('copy');
-		            document.body.removeChild(tempTextArea);
-
-		            // Afișarea toaster-ului pentru succes
-		            const toast = document.createElement('div');
-		            toast.className = 'toast align-items-center text-bg-success border-0';
-		            toast.innerHTML = `
-                                <div class="d-flex">
-                                    <div class="toast-body">The signing key has been copied to the clipboard!</div>
-                                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                                </div>`;
-		            document.body.appendChild(toast);
-		            const bootstrapToast = new bootstrap.Toast(toast, {delay: 3000});
-		            bootstrapToast.show();
-	            });
-
-	            uploadButton.addEventListener('click', () => {
-		            const uploadInput = document.createElement('input');
-		            uploadInput.type = 'file';
-		            uploadInput.accept = '.asc,.txt';
-		            uploadInput.style.display = 'none';
-		            document.body.appendChild(uploadInput);
-
-			            uploadInput.addEventListener('change', (event) => {
-				            const file = event.target.files[0];
-				            if (file) {
-					            const reader = new FileReader();
-					            reader.onload = (e) => {
-                                    publicKeyInput.value = e.target.result;
-					            };
-					            reader.readAsText(file);
-				            }
-			            });
-
-			            uploadInput.click();
-	            });
-
-	            form.addEventListener('submit', () => {
-		            publicKeyInput.value = publicKeyInput.value.trim();
-		            messageInput.value = messageInput.value.trim();
-		            signatureInput.value = signatureInput.value.trim();
-	            });
-
-	            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-	            tooltipTriggerList.map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
-
+        document.addEventListener('DOMContentLoaded', () => {
+            const copyButtons = document.querySelectorAll('.copy-button');
+            copyButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const target = button.getAttribute('data-target');
+                    const textarea = document.querySelector(`#pgp_verify_signature_form_${target}`);
+                    textarea.select();
+                    document.execCommand('copy');
+                });
             });
-
+        });
     </script>
 {% endblock %}

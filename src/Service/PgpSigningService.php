@@ -3,310 +3,180 @@
 namespace App\Service;
 
 use App\Exception\AppException;
-use Exception;
-use Psr\Log\LoggerInterface;
 use App\Exception\ErrorHandler;
-use Psr\Log\NullLogger;
-use const GNUPG_ERROR_EXCEPTION;
-use const GNUPG_SIG_MODE_DETACH;
-use const GNUPG_SIGSUM_VALID;
+use Exception;
 use gnupg;
 
 class PgpSigningService
 {
-
-    private $gnupg;
     private string $privateKeyPath;
-    private string $privateKeyPassphrase;
-    private LoggerInterface $logger;
-    private string $gnupgHome;
-    private const KEY_PERMISSIONS = 0600;
-    private const DIR_PERMISSIONS = 0700;
+    private string $passphrase;
+    private string $keyConfigPath;
     private string $publicKeyPath;
     private ErrorHandler $errorHandler;
+    private const GNUPG_SIGSUM_VALID = 0;
 
-    /**
-     * Constructor for the PgpSigningService class.
-     *
-     * @param ErrorHandler $errorHandler The error handler for managing exceptions.
-     * @param string $privateKeyPath The file path to the private key.
-     * @param string $privateKeyPassphrase The passphrase for the private key.
-     * @param string $gnupgHome The directory path for GnuPG home, default is '/var/www/app/config/pgp/key-config'.
-     * @param string $publicKeyPath The file path to the public key, default is '/var/www/app/config/pgp/public.key'.
-     * @param LoggerInterface|null $logger The logger for logging messages, default is a NullLogger.
-     * @throws AppException
-     */
+/**
+ * PgpSigningService constructor.
+ *
+ * Initializes the PgpSigningService with the necessary paths and settings
+ * for GnuPG operations.
+ *
+ * @param ErrorHandler $errorHandler  The error handler for managing exceptions.
+ * @param string       $privateKeyPath Path to the private key file.
+ * @param string       $passphrase     The passphrase for the private key.
+ * @param string       $keyConfigPath  Path to the GnuPG key configuration directory.
+ * @param string       $publicKeyPath  Path to the public key file.
+ *
+ * @throws AppException If GnuPG initialization fails due to an invalid passphrase.
+ */
     public function __construct(
-        ErrorHandler     $errorHandler,
-        string           $privateKeyPath,
-        string           $privateKeyPassphrase,
-        string           $gnupgHome = '/var/www/app/config/pgp/key-config',
-        string           $publicKeyPath = '/var/www/app/config/pgp/public.key',
-        ?LoggerInterface $logger = null
-    )
-    {
+        ErrorHandler $errorHandler,
+        string $privateKeyPath,
+        string $passphrase,
+        string $keyConfigPath,
+        string $publicKeyPath
+    ) {
         $this->errorHandler = $errorHandler;
         $this->privateKeyPath = $privateKeyPath;
-        $this->privateKeyPassphrase = $privateKeyPassphrase;
-        $this->gnupgHome = $this->prepareGnupgHome($gnupgHome);
+        $this->passphrase = $passphrase;
+        $this->keyConfigPath = $keyConfigPath;
         $this->publicKeyPath = $publicKeyPath;
-        $this->logger = $logger ?? new NullLogger();
-        $this->initializeGnupg();
-    }
 
-    /**
-     * Prepares the GnuPG home directory by resolving the path to the realpath
-     * and ensuring the directory exists and has the correct permissions.
-     *
-     * @param string $gnupgHome The path to the GnuPG home directory
-     *
-     * @return string The realpath of the GnuPG home directory
-     *
-     * @throws AppException If the GnuPG home path is not valid or does not exist
-     */
-    private function prepareGnupgHome(string $gnupgHome): string
-    {
         try {
-            $realPath = realpath($gnupgHome);
-            if ($realPath === false) {
-                throw new AppException('GnuPG home path is not valid or does not exist.');
-            }
-            return $realPath;
+            $this->initializeGnuPG();
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Failed to sign message');
+            throw new AppException('Failed to initialize GnuPG: Invalid passphrase');
         }
     }
 
     /**
-     * Initializes the GnuPG home directory by creating it if it does not exist and
-     * setting the correct permissions.
-     * Also sets the GnuPG home environment variable
-     * and creates a new GnuPG instance.
+     * Initialize GnuPG with the provided private key and passphrase.
      *
-     * If the GnuPG home directory already exists, verifies the permissions and if they
-     * are not correct, throws an AppException.
+     * This method will throw an AppException if the passphrase is invalid.
      *
-     * @throws AppException If the GnuPG home path exists but is not a directory
-     *                      or if the GnuPG home directory could not be created,
-     *                      or if the permissions could not be verified
+     * @return gnupg The initialized gnupg object.
+     *
+     * @throws AppException If the passphrase is invalid or if there is an error
+     *                      initializing gnupg.
      */
-    private function initializeGnupg(): void
+    private function initializeGnuPG(): gnupg
     {
+        putenv("GNUPGHOME={$this->keyConfigPath}");
+        $gpg = new gnupg();
+        $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
+
         try {
-            if (!file_exists($this->gnupgHome)) {
-
-                $this->logger->info('Creating GnuPG home directory', ['path' => $this->gnupgHome]);
-
-                if (!mkdir($concurrentDirectory = $this->gnupgHome, self::DIR_PERMISSIONS, true) && !is_dir($concurrentDirectory)) {
-                    throw new AppException('Failed to create GnuPG home directory');
-                }
-
-            } elseif (!is_dir($this->gnupgHome)) {
-                throw new AppException('GnuPG home path exists but is not a directory');
-            } else {
-                $this->verifyPermissions($this->gnupgHome, self::DIR_PERMISSIONS);
-            }
-
-            putenv("GNUPGHOME={$this->gnupgHome}");
-            $this->gnupg = new gnupg();
-            $this->configureGnupg();
-            $this->importAndVerifyKey();
-        } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Failed to initialize GnuPG');
-        }
-    }
-
-    /**
-     * Configures the GnuPG instance for the service.
-     *
-     * Configures the GnuPG instance to throw exceptions on errors, set the
-     * armor output to be enabled, and set the signature mode to be detached.
-     */
-    private function configureGnupg(): void
-    {
-        $this->gnupg->seterrormode(GNUPG_ERROR_EXCEPTION);
-        $this->gnupg->setarmor(1);
-        $this->gnupg->setsignmode(GNUPG_SIG_MODE_DETACH);
-    }
-
-    /**
-     * Imports the private key and verifies it can be used for signing.
-     *
-     * The method imports the private key using the GnuPG extension and
-     * verifies it can be used for signing by checking the subkey capabilities.
-     * If the key is not imported or verified successfully, an exception
-     * is thrown.
-     */
-    private function importAndVerifyKey(): void
-    {
-        try {
-            $this->verifyPermissions($this->privateKeyPath, self::KEY_PERMISSIONS);
-
             $privateKeyData = file_get_contents($this->privateKeyPath);
             if ($privateKeyData === false) {
                 throw new AppException('Failed to read private key file');
             }
 
-            $importResult = $this->gnupg->import($privateKeyData);
-            if (!$importResult || empty($importResult['fingerprint'])) {
+            $privateKeyInfo = $gpg->import($privateKeyData);
+            if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
                 throw new AppException('Failed to import private key');
             }
 
-            $keyInfo = $this->gnupg->keyinfo($importResult['fingerprint']);
-            if (empty($keyInfo)) {
-                throw new AppException('Failed to get key information');
-            }
-
-            if (!isset($keyInfo[0]['subkeys'][0]['can_sign']) || !$keyInfo[0]['subkeys'][0]['can_sign']) {
-                throw new AppException('The private key cannot be used for signing');
-            }
-
-            $this->gnupg->addsignkey(
-                $keyInfo[0]['subkeys'][0]['fingerprint'],
-                $this->privateKeyPassphrase
-            );
-
-            unset($privateKeyData);
+            $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
+            return $gpg;
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Failed to import and verify key');
+            if (str_contains($e->getMessage(), 'BAD_PASSPHRASE')) {
+                throw new AppException('Failed to initialize GnuPG: Invalid passphrase');
+            }
+            throw new AppException('Failed to initialize GnuPG: ' . $e->getMessage());
         }
     }
 
     /**
-     * Verifies that a file or directory has the expected permissions and is owned by the current user.
-     *
-     * @param string $path The path to the file or directory to check.
-     * @param int $expectedPermissions The expected permissions of the file or directory, in octal format.
-     *
-     * @throws AppException If the permissions do not match the expected value, or if the current user does not own the file or directory.
-     */
-    private function verifyPermissions(string $path, int $expectedPermissions): void
-    {
-        $filePerms = fileperms($path) & 0777;
-        if ($filePerms !== $expectedPermissions) {
-            throw new AppException(sprintf(
-                'File or directory "%s" has incorrect permissions. Expected: %o, found: %o',
-                $path,
-                $expectedPermissions,
-                $filePerms
-            ));
-        }
-
-        if (fileowner($path) !== posix_getuid()) {
-            throw new AppException(sprintf(
-                'File or directory "%s" is not owned by the current user.',
-                $path
-            ));
-        }
-    }
-
-    /**
-     * Signs a given message using the server's private key and returns the detached signature.
+     * Signs a given message using the server's private key and returns the
+     * generated signature.
      *
      * @param string $message The message to sign.
-     *
-     * @return string The detached signature of the message.
-     *
-     * @throws AppException If the message is empty or if signing fails.
+     * @return string The generated signature.
+     * @throws AppException If the signing failed.
      */
     public function signMessage(string $message): string
     {
-        if ($message === '') {
-            throw new AppException('Cannot sign empty message');
-        }
-
         try {
-            $this->logger->info('Attempting to sign message');
-            $signature = $this->gnupg->sign($message);
-
+            $gpg = $this->initializeGnuPG();
+            $signature = $gpg->sign($message);
             if ($signature === false) {
                 throw new AppException('Failed to sign message');
             }
-
-            $this->logger->info('Message signed successfully');
             return $signature;
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Error signing message');
+            throw new AppException('Failed to sign message: ' . $e->getMessage());
         }
     }
 
     /**
-     * Retrieves the server's public key as a string.
      *
-     * @return string|null The public key data, or null if an error occurs.
+     * @param string $message The message to verify the signature for.
+     * @param string $signature The signature to verify.
+     * @param string $publicKey The public PGP key to use for verification.
      *
-     * @throws AppException If the public key file is missing or unreadable, or if reading the file fails.
+     * @return bool True if the signature is valid for the given message and public key, false otherwise.
+     *
+     * @throws AppException If an unexpected error occurs during verification.
      */
-    public function getServerPublicKey(): ?string
+    public function verifySignature(string $message, string $signature, string $publicKey): bool
     {
         try {
-            if (!is_readable($this->publicKeyPath)) {
-                throw new AppException('Public key file is missing or unreadable');
+            putenv("GNUPGHOME={$this->keyConfigPath}");
+            $gpg = new gnupg();
+            $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
+
+            try {
+                $keyInfo = $gpg->import($publicKey);
+                if (empty($keyInfo) || !isset($keyInfo['fingerprint'])) {
+                    return false;
+                }
+            } catch (Exception $e) {
+                return false;
             }
 
-            $keyData = file_get_contents($this->publicKeyPath);
-            if ($keyData === false) {
-                throw new AppException('Failed to read the public key file');
+            try {
+                $info = $gpg->verify($signature, $message);
+                if (!is_array($info) || empty($info)) {
+                    return false;
+                }
+
+                foreach ($info as $sig) {
+                    if (isset($sig['summary']) && $sig['summary'] === self::GNUPG_SIGSUM_VALID) {
+                        return true;
+                    }
+                }
+            } catch (Exception $e) {
+                return false;
             }
 
-            return $keyData;
+            return false;
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Failed to retrieve server public key');
+            $this->errorHandler->handleServiceException($e, 'Unexpected error during signature verification');
         }
     }
 
     /**
-     * Verifies a given signature using the server's public key.
+     * Returns the server's public key as a string.
      *
-     * The verification process will import the server's public key and then
-     * verify the given signature against the message using the imported key.
+     * Reads the public key from the configured file path and returns it as a string.
+     * If the file is not readable or does not exist, an AppException is thrown with
+     * a descriptive error message.
      *
-     * @param string $message The message to verify.
-     * @param string $signature The detached signature to verify against the message.
-     *
-     * @return bool True if the signature is valid, false otherwise.
-     *
-     * @throws AppException If the server's public key is missing or unreadable, or if verification fails.
+     * @return string The server's public key as a string.
+     * @throws AppException If there is an error reading the public key.
      */
-    public function verifySignature(string $message, string $signature): bool
+    public function getServerPublicKey(): string
     {
         try {
-            $publicKeyData = $this->getServerPublicKey();
-            if (!$publicKeyData) {
-                throw new AppException('No public key available');
+            $publicKey = file_get_contents($this->publicKeyPath);
+            if ($publicKey === false) {
+                throw new AppException('Failed to read server public key file');
             }
-
-            $importResult = $this->gnupg->import($publicKeyData);
-            if (!$importResult || empty($importResult['fingerprint'])) {
-                throw new AppException('Invalid public key format');
-            }
-
-            $verificationResult = $this->gnupg->verify($message, $signature);
-
-            return !empty($verificationResult)
-                && isset($verificationResult[0]['summary'])
-                && ($verificationResult[0]['summary'] === 0 || $verificationResult[0]['summary'] & GNUPG_SIGSUM_VALID);
+            return $publicKey;
         } catch (Exception $e) {
-            $this->errorHandler->handleServiceException($e, 'Signature verification failed');
+            throw new AppException('Failed to read server public key: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Clears the GnuPG keyring and resets the GNUPGHOME environment variable.
-     *
-     * This method is called in the destructor to ensure that keys are not left in memory.
-     */
-    private function cleanup(): void
-    {
-        if ($this->gnupg) {
-            $this->gnupg->clearsignkeys();
-            $this->gnupg->cleardecryptkeys();
-        }
-        putenv("GNUPGHOME");
-    }
-
-    public function __destruct()
-    {
-        $this->cleanup();
-    }
 }

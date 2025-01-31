@@ -23,6 +23,10 @@ class PgpKeyService
      */
     public function verifyPublicKeyExists(string $email): bool
     {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
         foreach (self::KEY_SERVERS as $server) {
             try {
                 $response = file_get_contents("$server/pks/lookup?op=get&search=$email");
@@ -52,13 +56,16 @@ class PgpKeyService
      */
     public function getPublicKeyByEmail(string $email): string
     {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new AppException('Invalid email address format');
+        }
+
         foreach (self::KEY_SERVERS as $server) {
             try {
                 $response = file_get_contents("$server/pks/lookup?op=get&search=$email");
                 if ($response !== false && str_contains($response, 'BEGIN PGP PUBLIC KEY BLOCK')) {
-                    preg_match('/-----BEGIN PGP PUBLIC KEY BLOCK-----.*?-----END PGP PUBLIC KEY BLOCK-----/s', $response, $matches);
-                    if (!empty($matches[0])) {
-                        return $matches[0];
+                    if (preg_match('/-+BEGIN PGP PUBLIC KEY BLOCK-+.*?-+END PGP PUBLIC KEY BLOCK-+/s', $response, $matches)) {
+                        return trim($matches[0]);
                     }
                 }
             } catch (Exception $e) {
@@ -66,6 +73,6 @@ class PgpKeyService
             }
         }
 
-        throw new AppException('Could not retrieve PGP public key');
+        throw new AppException('No public key found for the provided email address');
     }
 }
