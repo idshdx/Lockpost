@@ -132,7 +132,7 @@ The guiding principle of SYM.PGP.ONY is to **simplify encryption** without compr
    - Provides failover mechanisms for unavailable servers or network issues.
 
 3. **PgpSigningService**
-   - Manages the server's private PGP key for signing outgoing messages.
+   - Manage the server's private PGP key for signing outgoing messages.
    - Operations include:
       - **Signing:** Uses the server's private key.
       - **Verification:** Validates signatures by matching with public keys.
