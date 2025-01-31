@@ -106,7 +106,7 @@ class DefaultController extends AbstractController
      *
      * @throws Exception If the token is invalid or expired.
      */
-    #[Route('/submit/{token}', name: 'app_submit')]
+    #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\-]++'])]
     public function submit(string $token): Response
     {
         try {

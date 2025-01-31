@@ -44,12 +44,14 @@ class TokenLinkService
         $hmac = hash_hmac('sha256', $encrypted . $iv, $key, true);
 
         // Return encoded token (HMAC + IV + Encrypted Data)
-        return base64_encode($hmac . $iv . $encrypted);
+        return strtr(base64_encode($hmac . $iv . $encrypted), '+/', '-_');
     }
 
     public function validateLink(string $token): string
     {
         try {
+            // Restore base64 standard characters
+            $token = strtr($token, '-_', '+/');
             $decoded = base64_decode($token);
             if ($decoded === false) {
                 throw new AppException('Invalid token format');
