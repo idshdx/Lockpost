@@ -32,7 +32,8 @@ read, without the other party needing to understand the technical details of enc
 - **Server-Side Signing** The application implements server-side PGP signing of all outgoing encrypted messages before forwarding them
 - **Best tech** The latest cryptography is used to encrypt messages, using the public key decoded from the shared link before being sent to the server
 - **Zero Storage**: No messages are stored on the server—they are signed with its keys first then forwarded to your mailbox
-- **No tracking** The server keeps the logs in memory, not on the filesystem, it does not store any information at all, no database, no caching, no sessions
+- **No tracking** The server keeps the logs in memory, not on the filesystem* , it does not store any information at 
+  all, no database, no caching, no sessions*
 - **No cookies** No analytics, no data, there is no legal need for a privacy policy.
 - **No anti-features** Simple design and straight forward usage. No need for guidance, no banners to close, no fancy or extra features.
 - **No license** Free and open source software that you can check, hack and self-host.
