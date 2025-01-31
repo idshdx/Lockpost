@@ -54,7 +54,7 @@ encrypted messages.
 This feature provides several benefits:
 - **Message Authentication**: Recipients can verifySignaturePage that our server actually processed messages
 - **Tampering Detection**: Any modifications to the message during transit can be detected
-**Secure** Latest advanced cryptography possible in regard to its implementation**
+**Secure** Latest advanced cryptography possible in high regard to its implementation
 - **Error logging** its general to avoid side attacks, or any other unintended leaks
 - **Rate limiting** on the server to avoid overloading or other DDoS attack types
 - **Trust Chain**: Creates a verifiable chain of trust from sender through our service to recipient
@@ -70,6 +70,20 @@ For the initiator of the communication to use the application, it needs to:
 Based on the provided implementation and available documentation, here is a detailed technical review of the system, its
 architecture, implementation components, and associated considerations:
 
+### What's PGP?
+
+PGP (Pretty Good Privacy) is an encryption technology used for:
+
+- Encrypting sensitive messages and files
+- Digital signatures
+- Secure communication
+
+The application mainly uses PGP with less other cryptography, to ensure that the communication is secure,
+having the end goal of the recipient being to receive, prove and read the messages securely.
+
+You can learn more about generating and managing PGP keys on the application's help page.
+Furthermore, you can also get server's key material, prove messages, signatures and experiment with PGP,
+separate from the app usage.
 ---
 
 ## **Technical Documentation**
