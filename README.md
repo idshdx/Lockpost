@@ -47,7 +47,7 @@ read, without the other party needing to understand the technical details of enc
    - Regular key rotation policies are enforced
    - The shared links are generated in the most secure way on the server possible and have an expiration date
    - The information used by the server to generate an encryption token is already willingly available in public
-##### Server-Side Message Signing
+
 To enhance security and message authenticity, the application implements server-side PGP signing of all outgoing
 encrypted messages.
 This feature provides several benefits:
