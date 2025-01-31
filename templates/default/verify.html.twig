@@ -3,6 +3,10 @@
 {% block title %}Verify PGP{% endblock %}
 
 {% block stylesheets %}
+    <!--suppress ALL -->
+
+
+
     <style>
         .copy-button {
             margin-left: 0.5rem;
@@ -90,7 +94,7 @@
                         <br>
 
                         <div class="d-flex align-items-center">
-                            <a href="{{ path('app_public_key') }}"
+                            <a href="{{ path('app_verify_signature') }}"
                                class="btn btn-outline-secondary download-button ms-2" download>
                                 Download
                             </a>

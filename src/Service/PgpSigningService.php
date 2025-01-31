@@ -25,6 +25,17 @@ class PgpSigningService
     private string $publicKeyPath;
     private ErrorHandler $errorHandler;
 
+    /**
+     * Constructor for the PgpSigningService class.
+     *
+     * @param ErrorHandler $errorHandler The error handler for managing exceptions.
+     * @param string $privateKeyPath The file path to the private key.
+     * @param string $privateKeyPassphrase The passphrase for the private key.
+     * @param string $gnupgHome The directory path for GnuPG home, default is '/var/www/app/config/pgp/key-config'.
+     * @param string $publicKeyPath The file path to the public key, default is '/var/www/app/config/pgp/public.key'.
+     * @param LoggerInterface|null $logger The logger for logging messages, default is a NullLogger.
+     * @throws AppException
+     */
     public function __construct(
         ErrorHandler     $errorHandler,
         string           $privateKeyPath,
@@ -43,6 +54,16 @@ class PgpSigningService
         $this->initializeGnupg();
     }
 
+    /**
+     * Prepares the GnuPG home directory by resolving the path to the realpath
+     * and ensuring the directory exists and has the correct permissions.
+     *
+     * @param string $gnupgHome The path to the GnuPG home directory
+     *
+     * @return string The realpath of the GnuPG home directory
+     *
+     * @throws AppException If the GnuPG home path is not valid or does not exist
+     */
     private function prepareGnupgHome(string $gnupgHome): string
     {
         try {
@@ -56,14 +77,27 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Initializes the GnuPG home directory by creating it if it does not exist and
+     * setting the correct permissions.
+     * Also sets the GnuPG home environment variable
+     * and creates a new GnuPG instance.
+     *
+     * If the GnuPG home directory already exists, verifies the permissions and if they
+     * are not correct, throws an AppException.
+     *
+     * @throws AppException If the GnuPG home path exists but is not a directory
+     *                      or if the GnuPG home directory could not be created,
+     *                      or if the permissions could not be verified
+     */
     private function initializeGnupg(): void
     {
         try {
             if (!file_exists($this->gnupgHome)) {
-                
+
                 $this->logger->info('Creating GnuPG home directory', ['path' => $this->gnupgHome]);
-                
-                if (!mkdir($this->gnupgHome, self::DIR_PERMISSIONS, true)) {
+
+                if (!mkdir($concurrentDirectory = $this->gnupgHome, self::DIR_PERMISSIONS, true) && !is_dir($concurrentDirectory)) {
                     throw new AppException('Failed to create GnuPG home directory');
                 }
 
@@ -82,6 +116,12 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Configures the GnuPG instance for the service.
+     *
+     * Configures the GnuPG instance to throw exceptions on errors, set the
+     * armor output to be enabled, and set the signature mode to be detached.
+     */
     private function configureGnupg(): void
     {
         $this->gnupg->seterrormode(GNUPG_ERROR_EXCEPTION);
@@ -89,6 +129,14 @@ class PgpSigningService
         $this->gnupg->setsignmode(GNUPG_SIG_MODE_DETACH);
     }
 
+    /**
+     * Imports the private key and verifies it can be used for signing.
+     *
+     * The method imports the private key using the GnuPG extension and
+     * verifies it can be used for signing by checking the subkey capabilities.
+     * If the key is not imported or verified successfully, an exception
+     * is thrown.
+     */
     private function importAndVerifyKey(): void
     {
         try {
@@ -124,6 +172,14 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Verifies that a file or directory has the expected permissions and is owned by the current user.
+     *
+     * @param string $path The path to the file or directory to check.
+     * @param int $expectedPermissions The expected permissions of the file or directory, in octal format.
+     *
+     * @throws AppException If the permissions do not match the expected value, or if the current user does not own the file or directory.
+     */
     private function verifyPermissions(string $path, int $expectedPermissions): void
     {
         $filePerms = fileperms($path) & 0777;
@@ -144,9 +200,18 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Signs a given message using the server's private key and returns the detached signature.
+     *
+     * @param string $message The message to sign.
+     *
+     * @return string The detached signature of the message.
+     *
+     * @throws AppException If the message is empty or if signing fails.
+     */
     public function signMessage(string $message): string
     {
-        if ($message === null || $message === '') {
+        if ($message === '') {
             throw new AppException('Cannot sign empty message');
         }
 
@@ -165,6 +230,13 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Retrieves the server's public key as a string.
+     *
+     * @return string|null The public key data, or null if an error occurs.
+     *
+     * @throws AppException If the public key file is missing or unreadable, or if reading the file fails.
+     */
     public function getServerPublicKey(): ?string
     {
         try {
@@ -183,6 +255,19 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Verifies a given signature using the server's public key.
+     *
+     * The verification process will import the server's public key and then
+     * verify the given signature against the message using the imported key.
+     *
+     * @param string $message The message to verify.
+     * @param string $signature The detached signature to verify against the message.
+     *
+     * @return bool True if the signature is valid, false otherwise.
+     *
+     * @throws AppException If the server's public key is missing or unreadable, or if verification fails.
+     */
     public function verifySignature(string $message, string $signature): bool
     {
         try {
@@ -206,6 +291,11 @@ class PgpSigningService
         }
     }
 
+    /**
+     * Clears the GnuPG keyring and resets the GNUPGHOME environment variable.
+     *
+     * This method is called in the destructor to ensure that keys are not left in memory.
+     */
     private function cleanup(): void
     {
         if ($this->gnupg) {

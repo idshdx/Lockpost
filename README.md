@@ -129,7 +129,7 @@ The signing feature requires proper setup in your deployment:
 gpg --gen-key
 ```
 
-2. Configure key paths in `config/packages/gpg.yaml`:
+1. Configure key paths in `config/packages/gpg.yaml`:
 ```yaml
 app:
     gpg:
@@ -137,7 +137,7 @@ app:
         private_key_path: '%kernel.project_dir%/config/pgp/private.key'
 ```
 
-3. Set appropriate permissions:
+1. Set appropriate permissions:
 ```bash
 chmod 600 config/pgp/private.key
 chmod 644 config/pgp/public.key

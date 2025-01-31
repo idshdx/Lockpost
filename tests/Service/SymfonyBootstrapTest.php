@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection UnnecessaryAssertionInspection */
 
 namespace App\Tests\Service;
 
@@ -30,6 +30,6 @@ class SymfonyBootstrapTest extends WebTestCase
         $client = static::createClient();
         $client->request('GET', '/');
 
-        $this->assertResponseIsSuccessful();
+        self::assertResponseIsSuccessful();
     }
 }

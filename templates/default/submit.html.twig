@@ -3,7 +3,8 @@
 {% block title %}Submit Encrypted Message{% endblock %}
 
 {% block stylesheets %}
-<style>
+<!--suppress ALL -->
+    <style>
     .loading {
         display: none;
     }
@@ -64,7 +65,8 @@ async function encryptAndSubmitMessage(event) {
         messageElement.disabled = true;
 
         const message = messageElement.value;
-        const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
+        // noinspection JSUnresolvedReference
+	    const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
 
         const encrypted = await openpgp.encrypt({
             message: await openpgp.createMessage({ text: message }),

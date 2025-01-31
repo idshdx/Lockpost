@@ -1,4 +1,9 @@
-<?php
+<?php /** @noinspection PhpParamsInspection */
+/** @noinspection PhpParamsInspection */
+/** @noinspection PhpParamsInspection */
+/** @noinspection PhpParamsInspection */
+
+/** @noinspection PhpParamsInspection */
 
 namespace App\Tests\Service;
 

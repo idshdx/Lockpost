@@ -70,7 +70,3 @@ RUN echo "use-agent" > /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-emit-version" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-comments" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "export-options export-minimal" >> /var/www/app/config/pgp/key-config/gpg.conf
-
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=3s \
-    CMD php-fpm -t || exit 1

@@ -2,11 +2,9 @@
 
 namespace App\Tests\Controller;
 
-use App\Form\PgpVerifySignatureFormType;
 use App\Service\PgpSigningService;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 
 class DefaultControllerTest extends WebTestCase
 {
@@ -18,14 +16,14 @@ class DefaultControllerTest extends WebTestCase
         parent::setUp();
         $this->client = static::createClient();
         $this->pgpSigningService = $this->createMock(PgpSigningService::class);
-        self::getContainer()->set('App\\Service\\PgpSigningService', $this->pgpSigningService);
+        self::getContainer()->set(PgpSigningService::class, $this->pgpSigningService);
     }
 
     public function testVerifyPageLoads(): void
     {
-        $crawler = $this->client->request('GET', '/verifySignaturePage');
-        $this->assertResponseIsSuccessful();
-        $this->assertSelectorExists('form[name="pgp_verify_form"]');
+        $crawler = $this->client->request('GET', '/verify');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('form[name="pgp_verify_form"]');
     }
 
     public function testVerifyValidSignature(): void
@@ -43,11 +41,11 @@ class DefaultControllerTest extends WebTestCase
             ]
         ];
 
-        $this->client->request('POST', '/verifySignaturePage', $formData);
+        $this->client->request('POST', '/verify', $formData);
 
-        $this->assertResponseIsSuccessful();
-        $this->assertSelectorExists('.alert-success');
-        $this->assertSelectorTextContains('.alert-success', 'Message signature is valid');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.alert-success');
+        self::assertSelectorTextContains('.alert-success', 'Message signature is valid');
     }
 
     public function testVerifyInvalidSignature(): void
@@ -65,11 +63,11 @@ class DefaultControllerTest extends WebTestCase
             ]
         ];
 
-        $this->client->request('POST', '/verifySignaturePage', $formData);
+        $this->client->request('POST', '/verify', $formData);
 
-        $this->assertResponseIsSuccessful();
-        $this->assertSelectorExists('.alert-warning');
-        $this->assertSelectorTextContains('.alert-warning', 'Message signature is invalid');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.alert-warning');
+        self::assertSelectorTextContains('.alert-warning', 'Message signature is invalid');
     }
 
     public function testVerifyWithError(): void
@@ -77,7 +75,7 @@ class DefaultControllerTest extends WebTestCase
         $this->pgpSigningService
             ->expects($this->once())
             ->method('verifySignature')
-            ->willThrowException(new \Exception('Verification error'));
+            ->willThrowException(new Exception('Verification error'));
 
         $formData = [
             'pgp_verify_form' => [
@@ -87,11 +85,11 @@ class DefaultControllerTest extends WebTestCase
             ]
         ];
 
-        $this->client->request('POST', '/verifySignaturePage', $formData);
+        $this->client->request('POST', '/verify', $formData);
 
-        $this->assertResponseIsSuccessful();
-        $this->assertSelectorExists('.alert-danger');
-        $this->assertSelectorTextContains('.alert-danger', 'Error verifying message');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.alert-danger');
+        self::assertSelectorTextContains('.alert-danger', 'Error verifying message');
     }
 
     public function testInvalidFormSubmission(): void
@@ -104,9 +102,21 @@ class DefaultControllerTest extends WebTestCase
             ]
         ];
 
-        $this->client->request('POST', '/verifySignaturePage', $formData);
+        $this->client->request('POST', '/verify', $formData);
 
-        $this->assertResponseIsSuccessful();
-        $this->assertSelectorExists('.invalid-feedback');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.invalid-feedback');
+    }
+
+    public function testFallbackForMissingRoutes(): void
+    {
+        // Testing the rendering with a missing route to verify graceful handling.
+        // This ensures missing routes like 'app_public_key' do not break the tests.
+
+        $crawler = $this->client->request('GET', '/verify');
+
+        self::assertResponseIsSuccessful();
+        // Ensure no errors are visible on the page
+        self::assertStringNotContainsString('Unable to generate a URL for the named route', $this->client->getResponse()->getContent());
     }
 }

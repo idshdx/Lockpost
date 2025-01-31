@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Exception\AppException;
+use Exception;
 
 class TokenLinkService
 {
@@ -20,10 +21,11 @@ class TokenLinkService
         $data = json_encode([
             'email' => $email,
             'exp' => $expiration
-        ]);
+        ], JSON_THROW_ON_ERROR);
 
         $ivlen = openssl_cipher_iv_length(self::CIPHER);
-        $iv = openssl_random_pseudo_bytes($ivlen);
+        $iv = random_bytes($ivlen); // Use random_bytes() for secure IV generation
+
         $key = hash('sha256', $this->appSecret, true);
 
         $encrypted = openssl_encrypt(
@@ -38,7 +40,10 @@ class TokenLinkService
             throw new AppException('Failed to encrypt data');
         }
 
+        // Generate HMAC for message authentication
         $hmac = hash_hmac('sha256', $encrypted . $iv, $key, true);
+
+        // Return encoded token (HMAC + IV + Encrypted Data)
         return base64_encode($hmac . $iv . $encrypted);
     }
 
@@ -58,11 +63,18 @@ class TokenLinkService
             $iv = substr($decoded, $hmacSize, $ivlen);
             $encrypted = substr($decoded, $hmacSize + $ivlen);
 
+            // Validate IV
+            if (empty($iv) || strlen($iv) !== $ivlen) {
+                throw new AppException('Invalid or corrupted IV');
+            }
+
+            // Verify the HMAC
             $calculatedHmac = hash_hmac('sha256', $encrypted . $iv, $key, true);
             if (!hash_equals($hmac, $calculatedHmac)) {
                 throw new AppException('Token has been tampered with');
             }
 
+            // Decrypt the data
             $decrypted = openssl_decrypt(
                 $encrypted,
                 self::CIPHER,
@@ -75,17 +87,19 @@ class TokenLinkService
                 throw new AppException('Failed to decrypt data');
             }
 
-            $data = json_decode($decrypted, true);
-            if (!isset($data['email']) || !isset($data['exp'])) {
+            // Validate decrypted data
+            $data = json_decode($decrypted, true, 512, JSON_THROW_ON_ERROR);
+            if (!isset($data['email'], $data['exp'])) {
                 throw new AppException('Invalid token data');
             }
 
+            // Ensure token has not expired
             if ($data['exp'] < time()) {
                 throw new AppException('Link has expired');
             }
 
             return $data['email'];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new AppException($e->getMessage());
         }
     }

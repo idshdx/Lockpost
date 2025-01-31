@@ -13,7 +13,7 @@
                             <p class="mb-0">Share this link with the person who needs to send you encrypted information:</p>
                         </div>
                         <div class="input-group mb-3">
-                            <input type="text" class="form-control" id="linkInput" value="{{ url('app_submit', {'token': token}) }}" readonly>
+                            <label for="linkInput"></label><input type="text" class="form-control" id="linkInput" value="{{ url('app_submit', {'token': token}) }}" readonly>
                             <button class="btn btn-outline-primary" type="button" onclick="copyLink()">Copy Link</button>
                         </div>
                         <div class="alert alert-info mt-4">
@@ -35,13 +35,13 @@
 {% block javascripts %}
 <script>
 function copyLink() {
-    var linkInput = document.getElementById('linkInput');
-    linkInput.select();
+	const linkInput = document.getElementById('linkInput');
+	linkInput.select();
     document.execCommand('copy');
-    
-    var button = event.target;
-    var originalText = button.innerText;
-    button.innerText = 'Copied!';
+
+	const button = event.target;
+	const originalText = button.innerText;
+	button.innerText = 'Copied!';
     setTimeout(function() {
         button.innerText = originalText;
     }, 2000);
