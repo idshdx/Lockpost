@@ -2,36 +2,35 @@
 
 ### What
 
-SYM.PGP.ONY is a secure web application
-that allows users
-to generate links that can be shared with people who will reply to you with private messages.
+SYM.PGP.ONY is a secure web application that allows users
+to generate links that can be shared with people who will reply to you with a private message.
 
 ### Why
 
 The app solves a common problem for some: receiving sensitive information securely from people who aren't familiar with the ways of doing so.
 
-By generating a unique secure link that you can share, anyone can send you PGP encrypted messages that only you can 
-read, without the other party needing to understand the technical details of encryption.
+By generating link that you can share, anyone with a browser can send you PGP encrypted messages that only you can read, without the other party needing to understand the technical details of encryption.
 
 
 ### How
 
-1. You generate a unique secure link through the app by providing your email address
-2. The app verifies your public PGP key from common key servers
-3. Share the generated link with someone who needs to send you sensitive information
-4. When they visit the link, they can submit their message
-5. The message is encrypted in their browser using your public PGP key
-6. The encrypted message is submitted to the server where its being signed and forwarded to your email address
+1. The Sender generates a unique secure link through the app by providing an email address of a PGP keypair. 
+2. The app verifies your public PGP key against common key servers, and if valid will encode the address as a token URL.
+3. You provide the link with someone you wish to receive sensitive information.
+(This is not part of the project scope, you use whatever channel you deem ok)
+4. When the receiver opens the link they can submit their message in a formbox.
+5. The message is encrypted in their browser using your public PGP key which is also fetched locally.
+6. The encrypted message is submitted to the server where its being signed and forwarded to your mailbox.
 7. You can decrypt the message using your private PGP key
 8. You can check the signature of the server, so that you are sure the message was not tampered with and that is not sent by someone else.
 
 ###  Features
 
 - **End-to-End Encryption**: All messages are encrypted while in transit over insecure channels
-- **Client-Side Encryption**: Messages are encrypted on the sender's browser
+- **Client-Side Encryption**: Messages are encrypted on the receivers's browser, besides key queries and validations 
 - **Server-Side Signing** The application implements server-side PGP signing of all outgoing encrypted messages before forwarding them
-- **Best tech** The latest cryptography is used to encrypt messages, using the public key decoded from the shared link before being sent to the server
-- **Zero Storage**: No messages are stored on the server—they are signed with its keys first then forwarded to your mailbox
+- **Latest standards** Tested and proven cryptography is used wherever possible.
+- **Zero Storage**: No messages are stored on the server — they are signed with the server keys before being forwarded to your mailbox
 - **No tracking** The server keeps the logs in memory, not on the filesystem* , it does not store any information at 
   all, no database, no caching, no sessions*
 - **No cookies** No analytics, no data, there is no legal need for a privacy policy.
@@ -87,6 +86,9 @@ separate from the app usage.
 ---
 
 ## **Technical Documentation**
+
+As with any software design, it has a choice which are a tradeoff. 
+Think about one example, token URLs are not one-time use but are valid for the timeperiod defined because the server has proper way to do so since it does not store any data (maybe using ZK).
 
 ### **Overview**
 
