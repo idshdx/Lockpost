@@ -17,10 +17,4 @@ parameters:
             private_key_path: '%kernel.project_dir%/config/pgp/private.key'
             default_key: '526305FEA2D9FD4A1B61185524EB37E488FBDBA0'
 
-services:
-    App\Service\PgpSigningService:
-        arguments:
-            $privateKeyPath: "%gpg.%env(APP_ENV)%.key_path%"
-            $publicKeyPath: "%gpg.%env(APP_ENV)%.public_key_path%"
-            $gnupgHome: "%gpg.%env(APP_ENV)%.home_dir%"
-            $logger: "@logger"
+# PgpSigningService is wired in config/services.yaml using app.pgp.* parameters.

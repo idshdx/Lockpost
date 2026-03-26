@@ -2,127 +2,171 @@
 
 [![GitLab](https://img.shields.io/badge/GitLab-Main_Repository-orange.svg)](https://gitlab.com/zer0lis/sym-pgp-ony)
 
-> **Note**: This is a mirror repository. The primary development takes place at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony)
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Features](#features)
-3. [System Architecture](#system-architecture)
-4. [Security](#security)
-5. [Technical Implementation](#technical-implementation)
-6. [Development Guide](#development-guide)
-7. [Future Plans](#future-plans)
-8. [Support & Contributing](#support--contributing)
+> This is a mirror repository. Primary development is at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony).
 
 ## Overview
 
-SYM.PGP.ONY is a secure web application enabling users to receive PGP-encrypted messages through shareable links. It
-solves the challenge of securely receiving sensitive information from users unfamiliar with encryption technologies.
+SYM.PGP.ONY lets users receive PGP-encrypted messages through shareable links. It solves the problem of securely receiving sensitive information from people who aren't familiar with encryption.
 
-### Core Workflow
+### How it works
 
-1. Sender generates unique link with their PGP email address
-2. System verifies public PGP key against key servers
-3. Sender shares link with intended recipient
-4. Recipient submits message through secure form
-5. Message is encrypted in browser using sender's public key
-6. Server signs encrypted message and forwards to sender
-7. Sender decrypts message using private PGP key
-8. Sender can verify server signature for authenticity
+1. You enter your PGP-associated email address to generate a unique, time-limited link
+2. The app verifies your public key exists on a public key server
+3. You share the link with whoever needs to send you a message
+4. They open the link, type their message — it's encrypted in the browser using your public key
+5. The server signs the encrypted message and emails it to you
+6. You decrypt it with your private PGP key and can verify the server's signature for authenticity
 
-## Features
+### Design principles
 
-- End-to-End Encryption
-- Client-Side Encryption
-- Server-Side Message Signing
-- Zero Storage Design
-- No Tracking or Cookies
-- Open Source Software
-- Modern Cryptographic Standards
+- No message storage — fully stateless, zero persistence
+- No tracking or cookies
+- Client-side encryption only (OpenPGP.js)
+- Stateless tokens using AES-256-CBC + HMAC-SHA256 (30-day expiry)
+- Server signs outgoing messages with its own PGP key
 
-## System Architecture
+---
 
-### Core Components
+## Local Development Setup
 
-1. **Token Link Service**
-    - Generates secure time-sensitive tokens
-    - Uses AES-256-CBC encryption
-    - Implements SHA-256 HMAC authentication
+**Prerequisites:** Docker and Docker Compose.
 
-2. **PGP Key Service**
-    - Verifies keys against trusted servers
-    - Provides server failover
-    - Supports multiple key servers
+### 1. Clone and configure environment
 
-3. **PGP Signing Service**
-    - Manages server signing keys
-    - Handles signature verification
-    - Uses GnuPG bindings
-
-### Technical Stack
-
-- Framework: Symfony
-- Encryption: OpenPGP.js
-- Email: Symfony Mailer
-- Development: Docker, NGINX, PHP-FPM
-- Testing: PHPUnit, MailHog
-
-## Security
-
-- AES-256-CBC encryption
-- SHA-256 HMAC authentication
-- Stateless design
-- Rate limiting
-- Token expiration
-- Isolated signing environment
-- Regular key rotation
-
-## Technical Implementation
-
-### Configuration
-
-```yaml
-app:
-    gpg:
-        public_key_path: '%kernel.project_dir%/config/pgp/public.key'
-        private_key_path: '%kernel.project_dir%/config/pgp/private.key'
+```bash
+git clone <repo-url>
+cd sym-pgp-ony
+cp .env.example .env
 ```
 
-### Key Management
-- Secure key storage
-- Permission controls
-- Automated rotation
-- HSM support (planned)
+The defaults in `.env.example` work for local Docker dev. The only value you may want to change is `APP_SECRET` — set it to any random string.
 
-## Development Guide
-### Setup
-1. Clone repository
-2. Install Docker and Docker Compose
-3. Run `docker-compose up -d`
-4. Configure key permissions:
-``` bash
-chmod 600 config/pgp/private.key
-chmod 644 config/pgp/public.key
+### 2. Start containers
+
+```bash
+docker-compose up -d
 ```
-### Testing
-- Use PHPUnit for business logic
-- MailHog for email testing ([http://localhost:8025](http://localhost:8025))
-- Verify signatures and encryption
 
-## Possible future Plans
-1. HSM Integration
-2. Mobile Support
-3. Analytics Options
-4. Localization
-5. Advanced Key Management
+This starts three containers: `php` (PHP 8.3-FPM), `nginx` (reverse proxy on port 80), and `mailhog` (local mail catcher).
 
-## Support & Contributing
-- GitHub Issues
-- Pull Requests Welcome
+### 3. Install PHP dependencies
 
+```bash
+docker exec php composer install
+```
 
-### Requirements
-- PGP key pair
-- Published public key
-- Secure private key storage
+### 4. Generate the server PGP key pair
+
+The app requires a PGP key pair to sign outgoing messages. Run this once:
+
+```bash
+docker exec php bash /var/www/app/scripts/init-pgp.sh
+```
+
+This generates `config/pgp/private.key` and `config/pgp/public.key` inside the container. These files are gitignored and never committed.
+
+### 5. Fix file permissions
+
+The PHP-FPM process runs as `www-data`. After key generation (which runs as root), fix ownership:
+
+```bash
+docker exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"
+```
+
+### 6. Verify
+
+The app is available at **http://localhost**.
+MailHog (inspect outgoing emails) is at **http://localhost:8025**.
+
+```bash
+# Quick smoke test — boots the kernel and hits the / route
+docker exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
+```
+
+---
+
+## Environment Variables
+
+Defined in `.env` (copy from `.env.example`):
+
+| Variable | Description |
+|---|---|
+| `APP_ENV` | `dev` for local, `prod` for production |
+| `APP_SECRET` | Random secret used for token encryption — change this |
+| `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
+| `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `doctrine://default?auto_setup=0` |
+| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. The default `init-pgp.sh` script generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty |
+
+---
+
+## Running Tests
+
+```bash
+# Full test suite
+docker exec php php bin/phpunit --no-coverage
+
+# Specific file
+docker exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
+docker exec php php bin/phpunit tests/Service/PgpSigningServiceTest.php --no-coverage
+
+# With coverage report
+docker exec php php bin/phpunit --coverage-text
+```
+
+---
+
+## Common Commands
+
+```bash
+# Clear Symfony cache
+docker exec php php bin/console cache:clear
+
+# Tail application logs
+docker exec php tail -f var/log/dev.log
+
+# Reinstall JS importmap assets
+docker exec php php bin/console importmap:install
+
+# Stop all containers
+docker-compose down
+```
+
+---
+
+## Architecture
+
+### Services
+
+| Service | Responsibility |
+|---|---|
+| `TokenLinkService` | Generates and validates time-limited encrypted tokens (AES-256-CBC + HMAC-SHA256) |
+| `PgpKeyService` | Looks up public keys from key servers (keys.openpgp.org, keyserver.ubuntu.com, pgp.mit.edu) |
+| `PgpSigningService` | Signs outgoing messages and verifies signatures using the server's GnuPG key |
+
+### Tech stack
+
+- **Backend:** PHP 8.3, Symfony 7.1
+- **Frontend:** Stimulus, Turbo, Symfony AssetMapper, OpenPGP.js, Bootstrap
+- **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
+- **Testing:** PHPUnit 9.5
+
+### PGP key storage
+
+Keys live in `config/pgp/` (gitignored):
+
+```
+config/pgp/
+  private.key       # Server signing key  (chmod 600, owner www-data)
+  public.key        # Server public key   (chmod 644, owner www-data)
+  key-config/       # GnuPG home directory
+    gpg.conf        # GPG config (pinentry-mode loopback, no-protection)
+```
+
+---
+
+## Future Plans
+
+- HSM integration
+- Mobile support
+- Localization
+- Advanced key management / automated rotation
