@@ -71,3 +71,10 @@ RUN echo "use-agent" > /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-emit-version" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-comments" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "export-options export-minimal" >> /var/www/app/config/pgp/key-config/gpg.conf
+
+# Entrypoint: fixes var/ and config/pgp/ ownership before PHP-FPM starts
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm"]

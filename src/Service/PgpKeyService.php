@@ -3,23 +3,22 @@
 namespace App\Service;
 
 use App\Exception\AppException;
-use Exception;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class PgpKeyService
 {
     private const KEY_SERVERS = [
         'https://keys.openpgp.org',
         'https://keyserver.ubuntu.com',
-        'https://pgp.mit.edu'
+        'https://pgp.mit.edu',
     ];
 
+    private const TIMEOUT = 8;
+
+    public function __construct(private readonly HttpClientInterface $httpClient) {}
+
     /**
-     * Check if a public key exists for a given email address on the configured
-     * public key servers.
-     *
-     * @param string $email The email address to check for a public key.
-     *
-     * @return bool True if a matching public key was found, false otherwise.
+     * Check if a public key exists for a given email address.
      */
     public function verifyPublicKeyExists(string $email): bool
     {
@@ -27,14 +26,10 @@ class PgpKeyService
             return false;
         }
 
-        foreach (self::KEY_SERVERS as $server) {
-            try {
-                $response = file_get_contents("$server/pks/lookup?op=get&search=$email");
-                if ($response !== false && str_contains($response, 'BEGIN PGP PUBLIC KEY BLOCK')) {
-                    return true;
-                }
-            } catch (Exception $e) {
-                continue;
+        // Collect all bodies first (fully consuming all responses), then check
+        foreach ($this->collectBodies($email) as $body) {
+            if (str_contains($body, 'BEGIN PGP PUBLIC KEY BLOCK')) {
+                return true;
             }
         }
 
@@ -42,17 +37,9 @@ class PgpKeyService
     }
 
     /**
-     * Retrieve the PGP public key for a given email address from configured key servers.
+     * Retrieve the PGP public key for a given email address.
      *
-     * This method queries multiple public key servers to find a PGP public key associated
-     * with the specified email address.
-     * It returns the first valid public key block found.
-     *
-     * @param string $email The email address to search for the PGP public key.
-     *
-     * @return string The PGP public key block if found.
-     *
-     * @throws AppException If no public key could be retrieved for the provided email address.
+     * @throws AppException If no public key could be retrieved.
      */
     public function getPublicKeyByEmail(string $email): string
     {
@@ -60,19 +47,57 @@ class PgpKeyService
             throw new AppException('Invalid email address format');
         }
 
-        foreach (self::KEY_SERVERS as $server) {
-            try {
-                $response = file_get_contents("$server/pks/lookup?op=get&search=$email");
-                if ($response !== false && str_contains($response, 'BEGIN PGP PUBLIC KEY BLOCK')) {
-                    if (preg_match('/-+BEGIN PGP PUBLIC KEY BLOCK-+.*?-+END PGP PUBLIC KEY BLOCK-+/s', $response, $matches)) {
-                        return trim($matches[0]);
-                    }
+        foreach ($this->collectBodies($email) as $body) {
+            if (str_contains($body, 'BEGIN PGP PUBLIC KEY BLOCK')) {
+                if (preg_match('/-+BEGIN PGP PUBLIC KEY BLOCK-+.*?-+END PGP PUBLIC KEY BLOCK-+/s', $body, $matches)) {
+                    return trim($matches[0]);
                 }
-            } catch (Exception $e) {
-                continue;
             }
         }
 
         throw new AppException('No public key found for the provided email address');
+    }
+
+    /**
+     * Fire all requests concurrently, wait for all to complete, and return
+     * an array of successful (2xx) response bodies.
+     *
+     * All responses are always fully consumed so that MockResponse::__destruct
+     * never throws ClientException in tests when responses are abandoned early.
+     *
+     * @return string[]
+     */
+    private function collectBodies(string $email): array
+    {
+        // Fire all requests simultaneously
+        $responses = [];
+        foreach (self::KEY_SERVERS as $server) {
+            $responses[] = $this->httpClient->request('GET', "$server/pks/lookup", [
+                'query'         => ['op' => 'get', 'search' => $email],
+                'timeout'       => self::TIMEOUT,
+                'max_redirects' => 3,
+            ]);
+        }
+
+        // Consume ALL responses before returning — this prevents MockResponse::__destruct
+        // from throwing ClientException when a 4xx response is garbage-collected unconsumed.
+        $bodies = [];
+        foreach ($responses as $response) {
+            try {
+                // getContent(false) suppresses HTTP status exceptions in the real client.
+                // MockResponse may still throw ClientException during initialization for 4xx —
+                // we catch all Throwable to handle both real and mock clients uniformly.
+                $body = $response->getContent(false);
+                $statusCode = $response->getStatusCode();
+
+                if ($statusCode >= 200 && $statusCode < 300 && $body !== '') {
+                    $bodies[] = $body;
+                }
+            } catch (\Throwable) {
+                // Transport error or HTTP error — skip this server
+            }
+        }
+
+        return $bodies;
     }
 }

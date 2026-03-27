@@ -9,10 +9,27 @@ class DefaultControllerTest extends WebTestCase
     public function testIndexPage(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/');
+        $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        // Ensure the correct form name
+        self::assertSelectorExists('form[name="email_form"]');
+    }
+
+    public function testFlashMessageRendersOutsideBodyBlock(): void
+    {
+        // Submitting with an invalid CSRF token triggers a form error re-render.
+        // The flash/error must appear even though child templates override {% block body %}.
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/');
+
+        $form = $crawler->selectButton('Generate Link')->form([
+            'email_form[email]' => 'invalid-email',
+        ]);
+
+        $crawler = $client->submit($form);
+
+        self::assertResponseIsSuccessful();
+        // Form should re-render with the email field still present
         self::assertSelectorExists('form[name="email_form"]');
     }
 

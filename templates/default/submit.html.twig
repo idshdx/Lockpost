@@ -48,7 +48,6 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.0/dist/openpgp.min.js"></script>
 <script>
 const publicKey = `{{ publicKey|raw }}`;
 const recipientEmail = `{{ email }}`;
@@ -59,14 +58,18 @@ async function encryptAndSubmitMessage(event) {
     const loadingIndicator = document.getElementById('loadingIndicator');
     const submitButton = event.target.querySelector('button[type="submit"]');
 
+    if (typeof openpgp === 'undefined') {
+        alert('Error: Encryption library failed to load. Please refresh the page and try again.');
+        return false;
+    }
+
     try {
         loadingIndicator.classList.add('active');
         submitButton.disabled = true;
         messageElement.disabled = true;
 
         const message = messageElement.value;
-        // noinspection JSUnresolvedReference
-	    const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
+        const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
 
         const encrypted = await openpgp.encrypt({
             message: await openpgp.createMessage({ text: message }),
@@ -89,7 +92,8 @@ async function encryptAndSubmitMessage(event) {
             alert('Message encrypted and sent successfully!');
             window.location.href = '/';
         } else {
-            throw new Error('Failed to send message');
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || body.errors?.join(', ') || 'Failed to send message');
         }
     } catch (error) {
         alert('Error: ' + error.message);
@@ -101,5 +105,8 @@ async function encryptAndSubmitMessage(event) {
 
     return false;
 }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.0/dist/openpgp.min.js"
+        onerror="document.getElementById('messageForm').insertAdjacentHTML('beforebegin','<div class=\'alert alert-danger\'>Encryption library failed to load. Check your internet connection.</div>')">
 </script>
 {% endblock %}

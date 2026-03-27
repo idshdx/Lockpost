@@ -195,7 +195,7 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
                 'message' => $dto->getEncryptedMessage(),
                 'message_signature' => $signedMessage,
                 'server_public_key' => $this->pgpSigningService->getServerPublicKey(),
-                'app_verify_url' => $this->generateUrl('app_verify')
+                'app_verify_url' => $this->generateUrl('app_verify'),
             ]));
 
         $this->mailer->send($email);

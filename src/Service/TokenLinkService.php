@@ -75,13 +75,9 @@ class TokenLinkService
     public function validateLink(string $token): string
     {
         try {
-            // Decode the Base64-encoded token; ensure safe padding
+            // Restore URL-safe base64 to standard base64 and re-add stripped padding
             $token = strtr($token, '-_', '+/');
             $token .= str_repeat('=', (4 - (strlen($token) % 4)) % 4);
-
-            if (!preg_match('/^[a-zA-Z0-9-_]+$/', $token)) {
-                throw new AppException('Invalid token format');
-            }
 
             $decoded = base64_decode($token, true);
             if ($decoded === false) {
@@ -123,8 +119,11 @@ class TokenLinkService
             }
 
             return $data['email'];
+        } catch (AppException $e) {
+            // Re-throw AppException directly — don't hide the real reason
+            throw $e;
         } catch (Exception $e) {
-            // Avoid exposing sensitive exception details
+            // Avoid exposing sensitive details from unexpected exceptions
             throw new AppException('Unable to validate token');
         }
     }
