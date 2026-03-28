@@ -1,50 +1,46 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Your Secure Link{% endblock %}
+{% block title %}Your Secure Link — SYM.PGP.ONY{% endblock %}
 
 {% block body %}
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card mt-5">
-                    <div class="card-body">
-                        <h2 class="card-title text-center mb-4">Your Secure Link is Ready</h2>
-                        <div class="alert alert-success">
-                            <p class="mb-0">Share this link with the person who needs to send you encrypted information:</p>
-                        </div>
-                        <div class="input-group mb-3">
-                            <label for="linkInput"></label><input type="text" class="form-control" id="linkInput" value="{{ url('app_submit', {'token': token}) }}" readonly>
-                            <button class="btn btn-outline-primary" type="button" onclick="copyLink()">Copy Link</button>
-                        </div>
-                        <div class="alert alert-info mt-4">
-                            <h5>Important Information:</h5>
-                            <ul class="mb-0">
-                                <li>This link will expire in 30 days</li>
-                                <li>The message will be encrypted with your PGP public key</li>
-                                <li>You will receive the encrypted message in your email</li>
-                                <li>No data is stored on our servers</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <h1 class="mb-4">Your Secure Link is Ready</h1>
+
+            <div class="alert alert-success mb-3">
+                <p class="mb-0">Share this link with the person who needs to send you an encrypted message:</p>
+            </div>
+
+            <div data-controller="clipboard"
+                 data-clipboard-success-label-value="Copied!"
+                 data-clipboard-original-label-value="Copy Link"
+                 class="input-group mb-4">
+                <label for="linkInput" class="visually-hidden">Your secure link</label>
+                <input type="text"
+                       class="form-control"
+                       id="linkInput"
+                       value="{{ url('app_submit', {'token': token}) }}"
+                       readonly
+                       aria-label="Your secure link"
+                       data-clipboard-target="source">
+                <button class="btn btn-outline-primary"
+                        type="button"
+                        data-action="clipboard#copy"
+                        aria-label="Copy link to clipboard">
+                    <i class="bi bi-clipboard" aria-hidden="true"></i>
+                    <span data-clipboard-target="label">Copy Link</span>
+                </button>
+            </div>
+
+            <div class="alert alert-info">
+                <h2 class="h5 alert-heading">Important Information</h2>
+                <ul class="mb-0">
+                    <li>This link expires in <strong>30 days</strong></li>
+                    <li>The message is <strong>encrypted client-side</strong> in the recipient's browser before being sent — your message never leaves their device unencrypted</li>
+                    <li>No data is stored on the server — the encrypted message is delivered directly to your email</li>
+                    <li>You will receive the encrypted message at your registered email address</li>
+                </ul>
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block javascripts %}
-<script>
-function copyLink() {
-	const linkInput = document.getElementById('linkInput');
-	linkInput.select();
-    document.execCommand('copy');
-
-	const button = event.target;
-	const originalText = button.innerText;
-	button.innerText = 'Copied!';
-    setTimeout(function() {
-        button.innerText = originalText;
-    }, 2000);
-}
-</script>
 {% endblock %}

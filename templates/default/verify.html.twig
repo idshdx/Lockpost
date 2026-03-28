@@ -1,125 +1,99 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Verify PGP{% endblock %}
-
-{% block stylesheets %}
-    <style>
-        .copy-button {
-            margin-left: 0.5rem;
-        }
-
-        .copy-section textarea {
-            flex-grow: 1;
-        }
-
-        .verification-guide {
-            background-color: #f8f9fa;
-            border-left: 4px solid #0d6efd;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .verification-steps {
-            list-style-type: decimal;
-            padding-left: 1.2rem;
-            margin-bottom: 0;
-        }
-    </style>
-{% endblock %}
+{% block title %}Verify PGP Signature — SYM.PGP.ONY{% endblock %}
 
 {% block body %}
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="verification-guide" id="verification-guide">
-                <h4 class="mb-3">PGP Verification Guide</h4>
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#verification-steps" aria-expanded="false" aria-controls="verification-steps">
+            <h1 class="mb-4" id="page-heading">Verify PGP Signature</h1>
+
+            <div class="border-start border-primary ps-3 mb-4">
+                <h2 class="h5 mb-2">How to verify a signature</h2>
+                <button class="btn btn-sm btn-outline-secondary mb-2" type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#verification-steps"
+                        aria-expanded="false"
+                        aria-controls="verification-steps">
                     Show / Hide
                 </button>
                 <div class="collapse" id="verification-steps">
-                    <div class="mt-3">
-                        <ol class="verification-steps">
-                            <li>Enter the original message you received</li>
-                            <li>Enter the PGP signature that came with the message</li>
-                            <li>Enter the public key of the sender</li>
-                            <li>Click "Verify Signature" to check if the message is authentic</li>
-                        </ol>
-                    </div>
+                    <ol class="mt-2 mb-0">
+                        <li>Paste the message you received into the Message field.</li>
+                        <li>Paste the PGP signature that accompanied the message into the PGP Signature field.</li>
+                        <li>Paste the sender's public key into the Public Key field.</li>
+                        <li>Click <strong>Verify Signature</strong> to confirm the message is authentic.</li>
+                    </ol>
                 </div>
             </div>
 
-            {{ form_start(form, {'attr': {'class': 'mb-4'}}) }}
+            {{ form_start(form, {'attr': {'aria-labelledby': 'page-heading', 'class': 'mb-4'}}) }}
 
-            <div class="mb-3">
+            <div class="mb-3" data-controller="clipboard">
                 {{ form_label(form.message, 'Message', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="copy-section d-flex">
-                    {{ form_widget(form.message, {'attr': {'class': form_errors(form.message)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
-                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="message">
-                        Copy
+                <div class="d-flex gap-2">
+                    {{ form_widget(form.message, {'attr': {
+                        'class': form_errors(form.message)|length > 0 ? 'form-control is-invalid' : 'form-control',
+                        'data-clipboard-target': 'source'
+                    }}) }}
+                    <button type="button"
+                            class="btn btn-outline-secondary align-self-start"
+                            data-action="clipboard#copy"
+                            aria-label="Copy message to clipboard">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% if form_errors(form.message)|length > 0 %}
-                    <div class="invalid-feedback">
-                        {{ form_errors(form.message) }}
-                    </div>
+                    <div class="invalid-feedback d-block">{{ form_errors(form.message) }}</div>
                 {% endif %}
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3" data-controller="clipboard">
                 {{ form_label(form.signature, 'PGP Signature', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="copy-section d-flex">
-                    {{ form_widget(form.signature, {'attr': {'class': form_errors(form.signature)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
-                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="signature">
-                        Copy
+                <div class="d-flex gap-2">
+                    {{ form_widget(form.signature, {'attr': {
+                        'class': form_errors(form.signature)|length > 0 ? 'form-control is-invalid' : 'form-control',
+                        'data-clipboard-target': 'source'
+                    }}) }}
+                    <button type="button"
+                            class="btn btn-outline-secondary align-self-start"
+                            data-action="clipboard#copy"
+                            aria-label="Copy PGP signature to clipboard">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% if form_errors(form.signature)|length > 0 %}
-                    <div class="invalid-feedback">
-                        {{ form_errors(form.signature) }}
-                    </div>
+                    <div class="invalid-feedback d-block">{{ form_errors(form.signature) }}</div>
                 {% endif %}
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3" data-controller="clipboard">
                 {{ form_label(form.public_key, 'Public Key', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="copy-section d-flex">
-                    {{ form_widget(form.public_key, {'attr': {'class': form_errors(form.public_key)|length > 0 ? 'form-control is-invalid' : 'form-control'}}) }}
-                    <button type="button" class="btn btn-outline-secondary copy-button" data-target="public_key">
-                        Copy
+                <div class="d-flex gap-2">
+                    {{ form_widget(form.public_key, {'attr': {
+                        'class': form_errors(form.public_key)|length > 0 ? 'form-control is-invalid' : 'form-control',
+                        'data-clipboard-target': 'source'
+                    }}) }}
+                    <button type="button"
+                            class="btn btn-outline-secondary align-self-start"
+                            data-action="clipboard#copy"
+                            aria-label="Copy public key to clipboard">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i>
                     </button>
                 </div>
                 {% if form_errors(form.public_key)|length > 0 %}
-                    <div class="invalid-feedback">
-                        {{ form_errors(form.public_key) }}
-                    </div>
+                    <div class="invalid-feedback d-block">{{ form_errors(form.public_key) }}</div>
                 {% endif %}
             </div>
 
-            <div class="d-grid gap-2">
+            <div class="d-grid">
                 <button type="submit" class="btn btn-primary">Verify Signature</button>
             </div>
 
-            {{ form_end(form) }}
+            {{ form_end(form, {'render_rest': false}) }}
 
             <div class="text-center mt-4">
                 <p>Want to send a signed message? <a href="{{ path('app_home') }}">Click here</a></p>
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block javascripts %}
-    <script>
-			document.addEventListener('DOMContentLoaded', () => {
-				const copyButtons = document.querySelectorAll('.copy-button');
-				copyButtons.forEach(button => {
-					button.addEventListener('click', () => {
-						const target = button.getAttribute('data-target');
-						const textarea = document.querySelector(`#pgp_verify_signature_form_${target}`);
-						textarea.select();
-						document.execCommand('copy');
-					});
-				});
-			});
-    </script>
 {% endblock %}

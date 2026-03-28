@@ -55,8 +55,10 @@ class DefaultControllerTest extends WebTestCase
 
         $client->submit($form);
 
-        self::assertResponseIsSuccessful();
-        self::assertRouteSame  ('app_verify'); // Match actual route name
+        // Form posts to /verify/signature which redirects back to /verify on invalid data
+        self::assertResponseRedirects('/verify');
+        $client->followRedirect();
+        self::assertRouteSame('app_verify');
     }
 
     public function testInvalidFormSubmission(): void
@@ -71,12 +73,15 @@ class DefaultControllerTest extends WebTestCase
         $form['verify_signature_form[message]'] = '';
         $form['verify_signature_form[signature]'] = 'Invalid Signature';
 
-        $crawler = $client->submit($form);
+        $client->submit($form);
 
+        // Form posts to /verify/signature which redirects back to /verify with a flash message
+        self::assertResponseRedirects('/verify');
+        $crawler = $client->followRedirect();
         self::assertResponseIsSuccessful();
 
-        // Assert that at least one .invalid-feedback message is displayed
-        $this->assertGreaterThan(0, $crawler->filter('.invalid-feedback')->count(), 'Expected .invalid-feedback class to be rendered.');
+        // Assert that a flash/alert message is displayed
+        $this->assertGreaterThan(0, $crawler->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
     }
 
 }

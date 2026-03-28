@@ -231,7 +231,10 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
     #[Route('/verify', name: 'app_verify')]
     public function verifySignaturePage(Request $request): Response
     {
-        $form = $this->createForm(PgpVerifySignatureFormType::class);
+        $form = $this->createForm(PgpVerifySignatureFormType::class, null, [
+            'action' => $this->generateUrl('app_verify_signature'),
+            'method' => 'POST',
+        ]);
         $form->handleRequest($request);
 
         return $this->render('default/verify.html.twig', [
@@ -284,6 +287,18 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
         }
 
         return $this->redirectToRoute('app_verify');
+    }
+
+    #[Route('/about', name: 'app_about')]
+    public function about(): Response
+    {
+        return $this->render('default/about.html.twig');
+    }
+
+    #[Route('/privacy', name: 'app_privacy')]
+    public function privacy(): Response
+    {
+        return $this->render('default/privacy.html.twig');
     }
 
     /**

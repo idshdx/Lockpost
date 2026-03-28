@@ -1,31 +1,26 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Generate Secure Message Link{% endblock %}
+{% block title %}Generate Secure Message Link — SYM.PGP.ONY{% endblock %}
 
 {% block body %}
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card mt-5">
-                    <div class="card-body">
-                        <h2 class="card-title text-center mb-4">Generate Secure Message Link</h2>
-                        <div class="alert alert-info mb-4">
-                            <h5>How it works:</h5>
-                            <ol class="mb-0">
-                                <li>Enter your email address that has a public PGP key published on key servers</li>
-                                <li>Get a secure link to share with someone who needs to send you an encrypted message</li>
-                                <li>When they use the link, their message will be encrypted with your public key</li>
-                                <li>You'll receive the encrypted message in your email</li>
-                            </ol>
-                        </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <h1 class="mb-4" id="page-heading">Generate Secure Message Link</h1>
 
-                        {{ form_start(form) }}
-                        {{ form_errors(form) }}
-                        {{ form_widget(form) }}
-                        {{ form_end(form) }}
-                    </div>
-                </div>
-            </div>
+            <section aria-labelledby="how-it-works-heading" class="alert alert-info mb-4">
+                <h2 id="how-it-works-heading" class="h5">How it works</h2>
+                <ol class="mb-0">
+                    <li>Enter your email address that has a public PGP key published on key servers.</li>
+                    <li>Receive a shareable link you can send to anyone who needs to contact you securely.</li>
+                    <li>When the recipient opens the link, their message is encrypted client-side in their browser before it ever leaves their device.</li>
+                    <li>You receive the encrypted message in your email inbox and decrypt it with your private PGP key.</li>
+                </ol>
+            </section>
+
+            {{ form_start(form, {'attr': {'aria-labelledby': 'page-heading', 'novalidate': 'novalidate'}}) }}
+            {{ form_errors(form) }}
+            {{ form_widget(form) }}
+            {{ form_end(form) }}
         </div>
     </div>
 {% endblock %}

@@ -1,112 +1,55 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Submit Encrypted Message{% endblock %}
-
-{% block stylesheets %}
-<!--suppress ALL -->
-    <style>
-    .loading {
-        display: none;
-    }
-    .loading.active {
-        display: block;
-    }
-</style>
-{% endblock %}
+{% block title %}Submit Encrypted Message — SYM.PGP.ONY{% endblock %}
 
 {% block body %}
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card mt-5">
-                    <div class="card-body">
-                        <h2 class="card-title text-center mb-4">Send Encrypted Message</h2>
-                        <div class="alert alert-info mb-4">
-                            <p class="mb-0">Your message will be encrypted with the recipient's PGP key before sending. The original message will not be stored or transmitted.</p>
-                        </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <h1 class="mb-4" id="page-heading">Send Encrypted Message</h1>
 
-                        <form id="messageForm" onsubmit="return encryptAndSubmitMessage(event)">
-                            <div class="mb-3">
-                                <label for="message" class="form-label">Your Message</label>
-                                <textarea class="form-control" id="message" rows="6" required></textarea>
-                            </div>
-                            <div class="loading" id="loadingIndicator">
-                                <div class="alert alert-warning">
-                                    <div class="spinner-border spinner-border-sm" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    Encrypting message...
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Send Encrypted Message</button>
-                        </form>
+            <div class="alert alert-info mb-4">
+                <p class="mb-0">
+                    Your message will be encrypted in your browser using the recipient's PGP key before it leaves your device.
+                    JavaScript and a modern browser are required for client-side encryption.
+                    The original message is never stored or transmitted unencrypted.
+                </p>
+            </div>
+
+            <noscript>
+                <div class="alert alert-danger mb-4" role="alert">
+                    <strong>JavaScript is required.</strong>
+                    This page uses client-side encryption to protect your message before it leaves your browser.
+                    It cannot function without JavaScript. Please enable JavaScript in your browser settings and reload the page.
+                </div>
+            </noscript>
+
+            <form id="messageForm"
+                  aria-labelledby="page-heading"
+                  data-controller="submit"
+                  data-submit-recipient-value="{{ email }}"
+                  data-submit-public-key-value="{{ publicKey|e('html_attr') }}"
+                  data-submit-submit-url-value="{{ path('app_submit_message') }}"
+                  data-submit-home-url-value="{{ path('app_home') }}">
+
+                <div class="mb-3">
+                    <label for="message" class="form-label">Your Message</label>
+                    <textarea class="form-control" id="message" rows="6" required
+                              data-submit-target="message"></textarea>
+                </div>
+
+                <div class="d-none" data-submit-target="feedback" role="alert"></div>
+
+                <div class="d-none" data-submit-target="loading">
+                    <div class="alert alert-warning">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        Encrypting and sending&hellip;
                     </div>
                 </div>
-            </div>
+
+                <button type="submit" class="btn btn-primary" data-submit-target="submitBtn">
+                    Send Encrypted Message
+                </button>
+            </form>
         </div>
     </div>
-{% endblock %}
-
-{% block javascripts %}
-<script>
-const publicKey = `{{ publicKey|raw }}`;
-const recipientEmail = `{{ email }}`;
-
-async function encryptAndSubmitMessage(event) {
-    event.preventDefault();
-    const messageElement = document.getElementById('message');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const submitButton = event.target.querySelector('button[type="submit"]');
-
-    if (typeof openpgp === 'undefined') {
-        alert('Error: Encryption library failed to load. Please refresh the page and try again.');
-        return false;
-    }
-
-    try {
-        loadingIndicator.classList.add('active');
-        submitButton.disabled = true;
-        messageElement.disabled = true;
-
-        const message = messageElement.value;
-        const recipientPublicKey = await openpgp.readKey({ armoredKey: publicKey });
-
-        const encrypted = await openpgp.encrypt({
-            message: await openpgp.createMessage({ text: message }),
-            encryptionKeys: recipientPublicKey
-        });
-
-        const response = await fetch('/message/submit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                encrypted: encrypted,
-                recipient: recipientEmail
-            })
-        });
-
-        if (response.ok) {
-            messageElement.value = '';
-            alert('Message encrypted and sent successfully!');
-            window.location.href = '/';
-        } else {
-            const body = await response.json().catch(() => ({}));
-            throw new Error(body.error || body.errors?.join(', ') || 'Failed to send message');
-        }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    } finally {
-        loadingIndicator.classList.remove('active');
-        submitButton.disabled = false;
-        messageElement.disabled = false;
-    }
-
-    return false;
-}
-</script>
-<script src="https://cdn.jsdelivr.net/npm/openpgp@5.11.0/dist/openpgp.min.js"
-        onerror="document.getElementById('messageForm').insertAdjacentHTML('beforebegin','<div class=\'alert alert-danger\'>Encryption library failed to load. Check your internet connection.</div>')">
-</script>
 {% endblock %}
