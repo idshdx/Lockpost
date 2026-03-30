@@ -5,22 +5,47 @@
 {% block body %}
     <div class="row justify-content-center">
         <div class="col-md-8 col-lg-6">
-            <h1 class="mb-4" id="page-heading">Generate Secure Message Link</h1>
+            <h1 class="mb-4" id="page-heading">Create new link</h1>
 
-            <section aria-labelledby="how-it-works-heading" class="alert alert-info mb-4">
-                <h2 id="how-it-works-heading" class="h5">How it works</h2>
-                <ol class="mb-0">
-                    <li>Enter your email address that has a public PGP key published on key servers.</li>
-                    <li>Receive a shareable link you can send to anyone who needs to contact you securely.</li>
-                    <li>When the recipient opens the link, their message is encrypted client-side in their browser before it ever leaves their device.</li>
-                    <li>You receive the encrypted message in your email inbox and decrypt it with your private PGP key.</li>
-                </ol>
-            </section>
+            <div class="alert alert-info mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="h6 mb-0" id="how-it-works-heading">How it works</h2>
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#home-how-it-works"
+                            aria-expanded="false"
+                            aria-controls="home-how-it-works">
+                        Show / Hide
+                    </button>
+                </div>
+                <div class="collapse" id="home-how-it-works">
+                    <ol class="mt-2 mb-0">
+                        <li>Enter your email address that has a public PGP key published on key servers.</li>
+                        <li>Generate a shareable link you can send to anyone who needs to contact you securely.</li>
+                        <li>The recipient opens the link to write you the message, which is encrypted client-side in their browser before it ever leaves their device.</li>
+                        <li>The servers signs the message and forwards it to your mailbox.</li>
+                        <li>Decrypt it with your private PGP key, and optionally check the signature if it matches the server's.</li>
+                    </ol>
+                </div>
+            </div>
 
-            {{ form_start(form, {'attr': {'aria-labelledby': 'page-heading', 'novalidate': 'novalidate'}}) }}
-            {{ form_errors(form) }}
-            {{ form_widget(form) }}
-            {{ form_end(form) }}
+            <div data-controller="home-form">
+                {{ form_start(form, {'attr': {
+                    'aria-labelledby': 'page-heading',
+                    'novalidate': 'novalidate',
+                    'data-action': 'submit->home-form#submit',
+                    'data-home-form-target': 'form'
+                }}) }}
+                {{ form_errors(form) }}
+                {{ form_widget(form) }}
+
+                <div class="d-none mt-3" data-home-form-target="loading">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Looking up PGP key&hellip;
+                </div>
+
+                {{ form_end(form) }}
+            </div>
         </div>
     </div>
 {% endblock %}

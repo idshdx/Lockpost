@@ -3,3 +3,6 @@ framework:
         # The paths to make available to the asset mapper.
         paths:
             - assets/
+        # Disable the ES Module Shims CDN polyfill — all assets are served locally
+        # and modern browsers support import maps natively.
+        importmap_polyfill: false

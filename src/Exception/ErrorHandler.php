@@ -4,7 +4,6 @@ namespace App\Exception;
 
 use Exception;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class ErrorHandler
@@ -22,11 +21,16 @@ class ErrorHandler
         throw new AppException($customMessage . ': ' . $e->getMessage());
     }
 
-    public function handleControllerException(Exception $e, string $customMessage): JsonResponse
+    public function handleControllerException(Exception $e, string $customMessage): Response
     {
         $this->logger->error($customMessage, ['error' => $e->getMessage()]);
-        return new JsonResponse([
-            'error' => $e->getMessage(),
-        ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        return new Response(
+            sprintf(
+                '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Error</title></head><body><h1>%s</h1><p>%s</p><p><a href="/">Return to homepage</a></p></body></html>',
+                htmlspecialchars($customMessage),
+                htmlspecialchars($e->getMessage())
+            ),
+            Response::HTTP_BAD_REQUEST
+        );
     }
 }

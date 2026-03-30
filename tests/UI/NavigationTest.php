@@ -40,10 +40,9 @@ class NavigationTest extends WebTestCase
     public function navRouteProvider(): array
     {
         return [
-            ['/', 'Home'],
+            ['/', 'Generate'],
             ['/verify', 'Verify'],
             ['/about', 'About'],
-            ['/privacy', 'Privacy'],
         ];
     }
 }

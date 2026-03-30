@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}SYM.PGP.ONY{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
     <link rel="stylesheet" href="{{ asset('bootstrap/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('bootstrap-icons/bootstrap-icons.css') }}">
     {% block stylesheets %}{% endblock %}
@@ -24,7 +25,7 @@
                     <li class="nav-item">
                         <a class="nav-link {% if app.request.attributes.get('_route') == 'app_home' %}active{% endif %}"
                            {% if app.request.attributes.get('_route') == 'app_home' %}aria-current="page"{% endif %}
-                           href="{{ path('app_home') }}">Home</a>
+                           href="{{ path('app_home') }}">Generate</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if app.request.attributes.get('_route') == 'app_verify' %}active{% endif %}"
@@ -35,11 +36,6 @@
                         <a class="nav-link {% if app.request.attributes.get('_route') == 'app_about' %}active{% endif %}"
                            {% if app.request.attributes.get('_route') == 'app_about' %}aria-current="page"{% endif %}
                            href="{{ path('app_about') }}">About</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if app.request.attributes.get('_route') == 'app_privacy' %}active{% endif %}"
-                           {% if app.request.attributes.get('_route') == 'app_privacy' %}aria-current="page"{% endif %}
-                           href="{{ path('app_privacy') }}">Privacy</a>
                     </li>
                 </ul>
             </div>
@@ -52,7 +48,7 @@
                 {% for message in messages %}
                     <div class="alert alert-{{ label == 'error' ? 'danger' : label }} alert-dismissible fade show"
                          role="alert">
-                        {{ message }}
+                        {{ message|nl2br }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss alert"></button>
                     </div>
                 {% endfor %}
@@ -64,11 +60,11 @@
     <footer class="py-4 mt-auto border-top" role="contentinfo">
         <div class="container d-flex flex-wrap justify-content-between align-items-center">
             <span class="text-body-secondary">
-                &copy; {{ "now"|date("Y") }} SYM.PGP.ONY — Privacy-first encrypted messaging.
+                SYM.PGP.ONY — Free, open source, privacy-first, encrypted messaging software.
             </span>
             <ul class="nav">
-                <li class="nav-item"><a class="nav-link text-body-secondary" href="{{ path('app_about') }}">About</a></li>
-                <li class="nav-item"><a class="nav-link text-body-secondary" href="{{ path('app_privacy') }}">Privacy</a></li>
+                <li class="nav-item"><a class="nav-link text-body-secondary" href="https://github.com/idshdx/sym-pgp-ony">Source code</a></li>
+                <li class="nav-item"><a class="nav-link text-body-secondary" href="{{ path('app_privacy') }}">Privacy policy</a></li>
             </ul>
         </div>
     </footer>

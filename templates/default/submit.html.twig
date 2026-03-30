@@ -8,11 +8,24 @@
             <h1 class="mb-4" id="page-heading">Send Encrypted Message</h1>
 
             <div class="alert alert-info mb-4">
-                <p class="mb-0">
-                    Your message will be encrypted in your browser using the recipient's PGP key before it leaves your device.
-                    JavaScript and a modern browser are required for client-side encryption.
-                    The original message is never stored or transmitted unencrypted.
-                </p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="h6 mb-0" id="how-it-works-heading">How it works</h2>
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#submit-how-it-works"
+                            aria-expanded="false"
+                            aria-controls="submit-how-it-works">
+                        Show / Hide
+                    </button>
+                </div>
+                <div class="collapse" id="submit-how-it-works">
+                    <ul class="mt-2 mb-0">
+                        <li>Your message is encrypted in your browser using the recipient's PGP key before it leaves your device.</li>
+                        <li>The application signs the encrypted message and forwards it to the mailbox that shared this link with you.</li>
+                        <li>JavaScript and a modern browser are required for client-side encryption.</li>
+                        <li>The original message is never stored or transmitted unencrypted.</li>
+                    </ul>
+                </div>
             </div>
 
             <noscript>
@@ -26,6 +39,7 @@
             <form id="messageForm"
                   aria-labelledby="page-heading"
                   data-controller="submit"
+                  data-action="submit->submit#submit"
                   data-submit-recipient-value="{{ email }}"
                   data-submit-public-key-value="{{ publicKey|e('html_attr') }}"
                   data-submit-submit-url-value="{{ path('app_submit_message') }}"
@@ -47,7 +61,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary" data-submit-target="submitBtn">
-                    Send Encrypted Message
+                    Send
                 </button>
             </form>
         </div>

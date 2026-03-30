@@ -13,6 +13,14 @@ class PgpKeyService
         'https://pgp.mit.edu',
     ];
 
+    public static function getKeyServerNames(): array
+    {
+        return array_map(
+            fn(string $url) => parse_url($url, PHP_URL_HOST),
+            self::KEY_SERVERS
+        );
+    }
+
     private const TIMEOUT = 8;
 
     public function __construct(private readonly HttpClientInterface $httpClient) {}

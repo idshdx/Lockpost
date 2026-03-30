@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
-import openpgp from 'openpgp';
+import * as openpgp from 'openpgp';
+
 
 export default class extends Controller {
     static targets = ['message', 'feedback', 'loading', 'submitBtn'];
