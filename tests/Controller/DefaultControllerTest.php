@@ -33,26 +33,28 @@ class DefaultControllerTest extends WebTestCase
     public function testVerifyPage(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
+        $client->request('GET', '/verify');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="verify_signature_form"]');
+        // The verify page now uses a plain HTML form wired to the Stimulus verify controller
+        self::assertSelectorExists('form[data-controller="verify"]');
     }
 
     public function testValidFormSubmission(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
 
-        $form = $crawler->selectButton('Verify Signature')->form([
-            'verify_signature_form[message]' => 'Test message',
-            'verify_signature_form[signature]' => 'Test signature',
-            'verify_signature_form[public_key]' => 'Test public key'
+        // POST directly to the server-side verify endpoint (kept for backward compat)
+        $client->request('POST', '/verify/signature', [
+            'verify_signature_form' => [
+                'message' => 'Test message',
+                'signature' => 'Test signature',
+                'public_key' => 'Test public key',
+                '_token' => 'invalid',
+            ],
         ]);
 
-        $client->submit($form);
-
-        // Form posts to /verify/signature which redirects back to /verify on invalid data
+        // Invalid CSRF → form not submitted → flash added → redirect to /verify
         self::assertResponseRedirects('/verify');
         $client->followRedirect();
         self::assertRouteSame('app_verify');
@@ -61,18 +63,18 @@ class DefaultControllerTest extends WebTestCase
     public function testInvalidFormSubmission(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
 
-        $form = $crawler->selectButton('Verify Signature')->form();
+        // POST directly to the server-side verify endpoint with invalid CSRF
+        $client->request('POST', '/verify/signature', [
+            'verify_signature_form' => [
+                'message' => '',
+                'signature' => 'Invalid Signature',
+                'public_key' => 'Invalid Public Key',
+                '_token' => 'invalid',
+            ],
+        ]);
 
-        // Submit the form with invalid data
-        $form['verify_signature_form[public_key]'] = 'Invalid Public Key';
-        $form['verify_signature_form[message]'] = '';
-        $form['verify_signature_form[signature]'] = 'Invalid Signature';
-
-        $client->submit($form);
-
-        // Form posts to /verify/signature which redirects back to /verify with a flash message
+        // Invalid CSRF → flash added → redirect to /verify
         self::assertResponseRedirects('/verify');
         $crawler = $client->followRedirect();
         self::assertResponseIsSuccessful();

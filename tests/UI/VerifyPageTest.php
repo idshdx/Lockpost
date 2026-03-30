@@ -35,17 +35,28 @@ class VerifyPageTest extends WebTestCase
 
         $html = $client->getResponse()->getContent();
 
-        // Property 7.5: icon-only copy buttons must have aria-label
-        // Find all buttons with clipboard action
-        preg_match_all('/<button\b([^>]*)data-action="clipboard#copy"([^>]*)>/i', $html, $matches);
+        // Find all buttons with clipboard action — icon-only ones must have aria-label,
+        // buttons with visible text don't need it.
+        preg_match_all('/<button\b([^>]*)data-action="clipboard#copy"([^>]*)>(.*?)<\/button>/is', $html, $matches);
 
         self::assertNotEmpty($matches[0], 'Expected at least one clipboard copy button on /verify');
 
-        foreach ($matches[0] as $buttonTag) {
+        foreach ($matches[0] as $index => $fullButton) {
+            $buttonAttrs = $matches[1][$index] . $matches[2][$index];
+            $buttonContent = $matches[3][$index];
+
+            // Strip icon tags and check for visible text
+            $textOnly = trim(strip_tags(preg_replace('/<i\b[^>]*>.*?<\/i>/is', '', $buttonContent)));
+            if ($textOnly !== '') {
+                // Has visible text — accessible name provided by text content, no aria-label needed
+                continue;
+            }
+
+            // Icon-only: must have aria-label
             self::assertMatchesRegularExpression(
                 '/aria-label=["\'][^"\']+["\']/i',
-                $buttonTag,
-                "Copy button is missing aria-label: $buttonTag"
+                $buttonAttrs,
+                "Icon-only copy button is missing aria-label: $fullButton"
             );
         }
     }

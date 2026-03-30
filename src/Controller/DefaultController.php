@@ -226,14 +226,8 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
     #[Route('/verify', name: 'app_verify')]
     public function verifySignaturePage(Request $request): Response
     {
-        $form = $this->createForm(PgpVerifySignatureFormType::class, null, [
-            'action' => $this->generateUrl('app_verify_signature'),
-            'method' => 'POST',
-        ]);
-        $form->handleRequest($request);
-
         return $this->render('default/verify.html.twig', [
-            'form' => $form->createView(),
+            'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
         ]);
     }
 

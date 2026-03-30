@@ -94,38 +94,35 @@ class AccessibilityTest extends WebTestCase
     {
         $client = static::createClient();
 
-        // /verify has 3 icon-only copy buttons (no visible text, only <i class="bi ...">)
+        // /verify previously had icon-only copy buttons; they now have visible text labels.
+        // This test verifies the page renders without icon-only buttons lacking accessible names.
         $client->request('GET', '/verify');
         $html = $client->getResponse()->getContent();
 
-        // Find all <button ...>...</button> blocks
         preg_match_all('/<button\b([^>]*)>(.*?)<\/button>/is', $html, $matches);
 
+        $violations = 0;
         foreach ($matches[0] as $index => $buttonHtml) {
             $buttonAttrs = $matches[1][$index];
             $buttonContent = $matches[2][$index];
 
-            // Check if this button contains a Bootstrap icon
             if (stripos($buttonContent, '<i class="bi') === false) {
                 continue;
             }
 
-            // Strip the <i> tag and whitespace to check for visible text
             $contentWithoutIcon = preg_replace('/<i\b[^>]*>.*?<\/i>/is', '', $buttonContent);
             $visibleText = trim(strip_tags($contentWithoutIcon));
 
             if ($visibleText !== '') {
-                // Button has visible text alongside the icon — accessible name is provided by text
                 continue;
             }
 
-            // Icon-only button: must have aria-label on the <button> tag itself
-            self::assertMatchesRegularExpression(
-                '/aria-label=["\'][^"\']+["\']/i',
-                $buttonAttrs,
-                "Page /verify: icon-only button is missing aria-label: $buttonHtml"
-            );
+            if (!preg_match('/aria-label=["\'][^"\']+["\']/i', $buttonAttrs)) {
+                $violations++;
+            }
         }
+
+        self::assertSame(0, $violations, 'All icon-only buttons on /verify must have aria-label');
     }
 
     // Feature: ui-redesign, Property 12: Flash Messages Include role="alert"
@@ -133,22 +130,8 @@ class AccessibilityTest extends WebTestCase
     {
         $client = static::createClient();
 
-        // GET the verify page to obtain a valid CSRF token
-        $crawler = $client->request('GET', '/verify');
-
-        // Submit the form with invalid data to trigger a flash message.
-        // The verify form POSTs to /verify/signature, which adds a flash and redirects to /verify.
-        // We need to find the actual form (which posts to /verify/signature).
-        $form = $crawler->filter('form')->form();
-        // Submit with empty fields — NotBlank constraints will fail, form is invalid,
-        // controller adds flash 'danger' and redirects to app_verify.
-        $form['verify_signature_form[message]'] = '';
-        $form['verify_signature_form[signature]'] = '';
-        $form['verify_signature_form[public_key]'] = '';
-
-        $client->submit($form);
-
-        // Follow the redirect to /verify where the flash is rendered
+        // Visiting an invalid submit token triggers a flash and redirects to home
+        $client->request('GET', '/submit/invalid-token-xyz');
         $client->followRedirect();
 
         $html = $client->getResponse()->getContent();

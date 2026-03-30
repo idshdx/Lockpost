@@ -3,97 +3,85 @@
 {% block title %}Verify PGP Signature — SYM.PGP.ONY{% endblock %}
 
 {% block body %}
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <h1 class="mb-4" id="page-heading">Verify PGP Signature</h1>
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <h1 class="mb-4" id="page-heading">Verify PGP Signature</h1>
 
-            <div class="border-start border-primary ps-3 mb-4">
-                <h2 class="h5 mb-2">How to verify a signature</h2>
-                <button class="btn btn-sm btn-outline-secondary mb-2" type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#verification-steps"
-                        aria-expanded="false"
-                        aria-controls="verification-steps">
-                    Show / Hide
-                </button>
-                <div class="collapse" id="verification-steps">
-                    <ol class="mt-2 mb-0">
-                        <li>Paste the message you received into the Message field.</li>
-                        <li>Paste the PGP signature that accompanied the message into the PGP Signature field.</li>
-                        <li>Paste the sender's public key into the Public Key field.</li>
-                        <li>Click <strong>Verify Signature</strong> to confirm the message is authentic.</li>
-                    </ol>
-                </div>
+        {# Guide #}
+        <div class="border-start border-primary ps-3 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">What does this page do?</h2>
+                <button class="btn btn-sm btn-outline-secondary" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#verify-guide"
+                        aria-expanded="false" aria-controls="verify-guide">Show / Hide</button>
             </div>
-
-            {{ form_start(form, {'attr': {'aria-labelledby': 'page-heading', 'class': 'mb-4'}}) }}
-
-            <div class="mb-3" data-controller="clipboard">
-                {{ form_label(form.message, 'Message', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="d-flex gap-2">
-                    {{ form_widget(form.message, {'attr': {
-                        'class': form_errors(form.message)|length > 0 ? 'form-control is-invalid' : 'form-control',
-                        'data-clipboard-target': 'source'
-                    }}) }}
-                    <button type="button"
-                            class="btn btn-outline-secondary align-self-start"
-                            data-action="clipboard#copy"
-                            aria-label="Copy message to clipboard">
-                        <i class="bi bi-clipboard" aria-hidden="true"></i>
-                    </button>
-                </div>
-                {% if form_errors(form.message)|length > 0 %}
-                    <div class="invalid-feedback d-block">{{ form_errors(form.message) }}</div>
-                {% endif %}
-            </div>
-
-            <div class="mb-3" data-controller="clipboard">
-                {{ form_label(form.signature, 'PGP Signature', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="d-flex gap-2">
-                    {{ form_widget(form.signature, {'attr': {
-                        'class': form_errors(form.signature)|length > 0 ? 'form-control is-invalid' : 'form-control',
-                        'data-clipboard-target': 'source'
-                    }}) }}
-                    <button type="button"
-                            class="btn btn-outline-secondary align-self-start"
-                            data-action="clipboard#copy"
-                            aria-label="Copy PGP signature to clipboard">
-                        <i class="bi bi-clipboard" aria-hidden="true"></i>
-                    </button>
-                </div>
-                {% if form_errors(form.signature)|length > 0 %}
-                    <div class="invalid-feedback d-block">{{ form_errors(form.signature) }}</div>
-                {% endif %}
-            </div>
-
-            <div class="mb-3" data-controller="clipboard">
-                {{ form_label(form.public_key, 'Public Key', {'label_attr': {'class': 'form-label'}}) }}
-                <div class="d-flex gap-2">
-                    {{ form_widget(form.public_key, {'attr': {
-                        'class': form_errors(form.public_key)|length > 0 ? 'form-control is-invalid' : 'form-control',
-                        'data-clipboard-target': 'source'
-                    }}) }}
-                    <button type="button"
-                            class="btn btn-outline-secondary align-self-start"
-                            data-action="clipboard#copy"
-                            aria-label="Copy public key to clipboard">
-                        <i class="bi bi-clipboard" aria-hidden="true"></i>
-                    </button>
-                </div>
-                {% if form_errors(form.public_key)|length > 0 %}
-                    <div class="invalid-feedback d-block">{{ form_errors(form.public_key) }}</div>
-                {% endif %}
-            </div>
-
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary">Verify Signature</button>
-            </div>
-
-            {{ form_end(form, {'render_rest': false}) }}
-
-            <div class="text-center mt-4">
-                <p>Want to receive a new message? <a href="{{ path('app_home') }}">Click here</a></p>
+            <div class="collapse" id="verify-guide">
+                <p class="mt-2 mb-1">
+                    Use this page to verify any PGP-signed message against a public key.
+                    When someone sends you a message through SYM.PGP.ONY, the server signs the encrypted message with its private key before emailing it to you.
+                    Pasting the signed message and the server's public key here lets you confirm the message was genuinely forwarded by this server and was not tampered with in transit.
+                </p>
+                <p class="mb-1"><strong>Verification happens entirely in your browser</strong> — no data is sent to the server.</p>
+                <ol class="mb-0">
+                    <li>Paste any <strong>PGP-signed message</strong> (starts with <code>-----BEGIN PGP SIGNED MESSAGE-----</code>) into the first field.</li>
+                    <li>Paste the corresponding <strong>public key</strong> into the second field. The server's key is pre-filled — replace it with any other key if needed.</li>
+                    <li>Click <strong>Verify</strong>.</li>
+                </ol>
             </div>
         </div>
+
+        <form aria-labelledby="page-heading"
+              data-controller="verify"
+              data-action="submit->verify#verify"
+              novalidate>
+
+            <div class="mb-3">
+                <label for="signed-message" class="form-label fw-semibold">
+                    Signed Message
+                    <small class="text-body-secondary fw-normal">— paste a <code>-----BEGIN PGP SIGNED MESSAGE-----</code> block</small>
+                </label>
+                <textarea class="form-control font-monospace"
+                          id="signed-message" rows="8"
+                          placeholder="-----BEGIN PGP SIGNED MESSAGE-----&#10;..."
+                          data-verify-target="signedMessage"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="public-key" class="form-label fw-semibold">
+                    The Server's Public Key
+                    <small class="text-body-secondary fw-normal">— or replace with any key</small>
+                </label>
+                <textarea class="form-control font-monospace"
+                          id="public-key" rows="6"
+                          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;..."
+                          data-verify-target="publicKey">{{ serverPublicKey }}</textarea>
+            </div>
+
+            <div class="d-none mb-3" data-verify-target="result" role="alert"></div>
+
+            <div class="d-none mb-3" data-verify-target="loading">
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Verifying signature…
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary" data-verify-target="submitBtn">
+                    <i class="bi bi-shield-check me-1" aria-hidden="true"></i>Verify
+                </button>
+                <div data-controller="clipboard"
+                     data-clipboard-success-label-value="Copied!"
+                     data-clipboard-original-label-value="Copy Server Key">
+                    <textarea class="d-none" data-clipboard-target="source">{{ serverPublicKey }}</textarea>
+                    <button type="button" class="btn btn-outline-secondary" data-action="clipboard#copy">
+                        <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
+                        <span data-clipboard-target="label">Copy Server Key</span>
+                    </button>
+                </div>
+                <a href="{{ path('app_server_key_download') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-download me-1" aria-hidden="true"></i>Download Server Key
+                </a>
+            </div>
+        </form>
     </div>
+</div>
 {% endblock %}
