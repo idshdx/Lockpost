@@ -20,8 +20,8 @@ class NewPagesTest extends WebTestCase
 
         $html = $client->getResponse()->getContent();
 
-        self::assertStringContainsString('<h1>About SYM.PGP.ONY</h1>', $html);
-        self::assertStringContainsString('What is SYM.PGP.ONY?', $html);
+        self::assertStringContainsString('<h1>About Lockpost</h1>', $html);
+        self::assertStringContainsString('What is Lockpost?', $html);
         self::assertStringContainsString('How it works', $html);
         self::assertStringContainsString('Zero storage', $html);
         self::assertStringContainsString('No tracking', $html);

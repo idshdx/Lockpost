@@ -1,4 +1,6 @@
-# SYM.PGP.ONY
+# Lockpost
+
+> *Share a link. Receive a secret. Leave no trace.*
 
 [![GitLab](https://img.shields.io/badge/GitLab-Main_Repository-orange.svg)](https://gitlab.com/zer0lis/sym-pgp-ony)
 
@@ -6,7 +8,7 @@
 
 ## Overview
 
-SYM.PGP.ONY lets users receive PGP-encrypted messages through shareable links. It solves the problem of securely receiving sensitive information from people who aren't familiar with encryption.
+Lockpost lets users receive PGP-encrypted messages through shareable links. It solves the problem of securely receiving sensitive information from people who aren't familiar with encryption.
 
 ### How it works
 
@@ -35,7 +37,7 @@ SYM.PGP.ONY lets users receive PGP-encrypted messages through shareable links. I
 
 ```bash
 git clone <repo-url>
-cd sym-pgp-ony
+cd lockpost
 cp .env.example .env
 ```
 

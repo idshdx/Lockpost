@@ -1,8 +1,8 @@
 {
-  "name": "symfony/skeleton",
+  "name": "lockpost/lockpost",
   "type": "project",
   "license": "proprietary",
-  "description": "A minimal Symfony project recommended to create bare bones applications",
+  "description": "Share a link. Receive a secret. Leave no trace.",
   "minimum-stability": "stable",
   "prefer-stable": true,
   "require": {
