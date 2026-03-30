@@ -84,7 +84,39 @@
         "LOCALAPPDATA": "C:\\Users\\mihai\\AppData\\Local",
         "ProgramData": "C:\\ProgramData",
         "ProgramFiles": "C:\\Program Files"
-      }
+      },
+      "disabledTools": [
+        "browser_click",
+        "browser_close",
+        "browser_console_messages",
+        "browser_drag",
+        "browser_evaluate",
+        "browser_file_upload",
+        "browser_fill_form",
+        "browser_handle_dialog",
+        "browser_hover",
+        "browser_navigate",
+        "browser_navigate_back",
+        "browser_network_requests",
+        "browser_press_key",
+        "browser_resize",
+        "browser_run_code",
+        "browser_select_option",
+        "browser_snapshot",
+        "browser_tabs",
+        "browser_take_screenshot",
+        "browser_type",
+        "browser_wait_for",
+        "code-mode",
+        "get-library-docs",
+        "mcp-add",
+        "mcp-config-set",
+        "mcp-exec",
+        "mcp-find",
+        "mcp-remove",
+        "resolve-library-id",
+        "search_astro_docs"
+      ]
     }
   }
 }
