@@ -2,9 +2,6 @@
 
 > *Share a link. Receive a secret. Leave no trace.*
 
-[![GitLab](https://img.shields.io/badge/GitLab-Main_Repository-orange.svg)](https://gitlab.com/zer0lis/sym-pgp-ony)
-
-> This is a mirror repository. Initial development was done at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony).
 
 ## Overview
 
@@ -13,11 +10,11 @@ Lockpost lets users receive PGP-encrypted messages through shareable links. It s
 ### How it works
 
 1. You enter your PGP-associated email address to generate a unique, time-limited link
-2. The app verifies your public key exists on a public key server
-3. You share the link with whoever needs to send you a message
-4. They open the link, type their message — it's encrypted in the browser using your public key
+2. The app verifies your public key exists on public key servers
+3. You share the link with whoever needs to send you a message (it is up to you how you do this)
+4. They open the link to type their message which is encrypted in the browser using your public key
 5. The server signs the encrypted message and emails it to you
-6. You decrypt it with your private PGP key and can verify the server's signature for authenticity
+6. You decrypt it with your private PGP key, you also can verify the server's signature for authenticity
 
 ### Design principles
 
@@ -145,7 +142,7 @@ docker-compose down
 | `PgpKeyService` | Looks up public keys from key servers (keys.openpgp.org, keyserver.ubuntu.com, pgp.mit.edu) |
 | `PgpSigningService` | Signs outgoing messages and verifies signatures using the server's GnuPG key |
 
-### Tech stack
+### Tech stack (leftover from the initial project done at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony))
 
 - **Backend:** PHP 8.3, Symfony 7.1
 - **Frontend:** Stimulus, Turbo, Symfony AssetMapper, OpenPGP.js, Bootstrap
@@ -168,7 +165,5 @@ config/pgp/
 
 ## Future Plans
 
-- HSM integration
-- Mobile support
-- Localization
-- Advanced key management / automated rotation
+- Deploy it live
+- Better looks
