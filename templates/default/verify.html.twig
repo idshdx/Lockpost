@@ -31,6 +31,7 @@
         </div>
 
         <form aria-labelledby="page-heading"
+              method="post" action="{{ path('app_verify_signature') }}"
               data-controller="verify"
               data-action="submit->verify#verify"
               novalidate>

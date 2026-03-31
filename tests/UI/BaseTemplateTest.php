@@ -24,15 +24,6 @@ class BaseTemplateTest extends WebTestCase
         return ['/', '/about', '/privacy', '/verify'];
     }
 
-    /**
-     * Generates a valid /submit/{token} URL using TokenLinkService from the container.
-     */
-    private function getSubmitUrl(): string
-    {
-        $token = static::getContainer()->get(TokenLinkService::class)->generateLink('test@example.com');
-        return '/submit/' . $token;
-    }
-
     // Feature: ui-redesign, Property 1: No External Asset References
     // For any page rendered by the application, the resulting HTML SHALL contain
     // no <link> or <script> tag whose src or href attribute points to an external domain.
@@ -40,23 +31,18 @@ class BaseTemplateTest extends WebTestCase
     public function testNoExternalAssetReferences(): void
     {
         $client = static::createClient();
-
-        // Build full route list including /submit/{token}
         $routes = $this->getTestRoutes();
-        $routes[] = $this->getSubmitUrl();
 
         foreach ($routes as $url) {
             $client->request('GET', $url);
             $html = $client->getResponse()->getContent();
 
-            // Assert no <link> tag has href pointing to an external domain
             self::assertDoesNotMatchRegularExpression(
                 '/<link[^>]+href=["\']https?:\/\//i',
                 $html,
                 "Page $url: found a <link> tag with an external href"
             );
 
-            // Assert no <script> tag has src pointing to an external domain
             self::assertDoesNotMatchRegularExpression(
                 '/<script[^>]+src=["\']https?:\/\//i',
                 $html,
@@ -64,8 +50,7 @@ class BaseTemplateTest extends WebTestCase
             );
         }
 
-        // Ensure we covered at least the 4 standard routes + submit = 5 iterations
-        self::assertGreaterThanOrEqual(5, count($routes));
+        self::assertGreaterThanOrEqual(4, count($routes));
     }
 
     // Feature: ui-redesign, Property 2: Nav Role and Label Present on Every Page

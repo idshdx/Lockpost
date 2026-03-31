@@ -1,0 +1,9 @@
+services:
+    # Replace the real HTTP client with a mock in tests so PgpKeyService
+    # never makes real network requests to key servers.
+    # The mock returns a valid-looking PGP public key block for any request.
+    App\Tests\Mock\MockHttpClient:
+        public: true
+
+    Symfony\Contracts\HttpClient\HttpClientInterface:
+        alias: App\Tests\Mock\MockHttpClient
