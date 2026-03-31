@@ -2,24 +2,57 @@
 
 > *Share a link. Receive a secret. Leave no trace.*
 
-[![GitLab](https://img.shields.io/badge/GitLab-Main_Repository-orange.svg)](https://gitlab.com/zer0lis/sym-pgp-ony)
-
-> This is a mirror repository. Primary development is at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony).
+---
 
 ## Overview
 
 Lockpost lets users receive PGP-encrypted messages through shareable links. It solves the problem of securely receiving sensitive information from people who aren't familiar with encryption.
 
-### How it works
+---
 
-1. You enter your PGP-associated email address to generate a unique, time-limited link
-2. The app verifies your public key exists on a public key server
-3. You share the link with whoever needs to send you a message
-4. They open the link, type their message — it's encrypted in the browser using your public key
-5. The server signs the encrypted message and emails it to you
-6. You decrypt it with your private PGP key and can verify the server's signature for authenticity
+## How it works
 
-### Design principles
+**1. Generate a link**
+
+Enter your PGP-associated email address. The app looks up your public key on public key servers and generates a unique, time-limited shareable link.
+
+![Generate a secure link](docs/screenshots/generate-link.png)
+
+---
+
+**2. Share the link**
+
+Copy the link and send it to whoever needs to contact you — by email, chat, or any other channel.
+
+![Shareable link ready](docs/screenshots/shareable-link.png)
+
+---
+
+**3. Recipient writes a message**
+
+The recipient opens the link and types their message. It is encrypted entirely in their browser using your public key before anything leaves their device.
+
+![Write and encrypt a message](docs/screenshots/write-message.png)
+
+---
+
+**4. You receive the email**
+
+The server signs the encrypted message with its own PGP key and forwards it to your inbox. The email contains the signed message, the raw encrypted block, and the server's public key.
+
+![Email received](docs/screenshots/email-received.png)
+
+---
+
+**5. Verify the server's signature (optional)**
+
+Paste the signed message and the server's public key into the Verify page to confirm the message was genuinely forwarded by this server and was not tampered with in transit. Verification runs entirely in the browser.
+
+![Verify the server signature](docs/screenshots/verify-signature.png)
+
+---
+
+## Design principles
 
 - No message storage — fully stateless, zero persistence
 - No tracking or cookies
@@ -81,7 +114,7 @@ The app is available at **http://localhost**.
 MailHog (inspect outgoing emails) is at **http://localhost:8025**.
 
 ```bash
-# Quick smoke test — boots the kernel and hits the / route
+# Quick smoke test
 docker exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
 ```
 
@@ -97,7 +130,7 @@ Defined in `.env` (copy from `.env.example`):
 | `APP_SECRET` | Random secret used for token encryption — change this |
 | `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
 | `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `doctrine://default?auto_setup=0` |
-| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. The default `init-pgp.sh` script generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty |
+| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty |
 
 ---
 
@@ -148,7 +181,7 @@ docker-compose down
 ### Tech stack
 
 - **Backend:** PHP 8.3, Symfony 7.1
-- **Frontend:** Stimulus, Turbo, Symfony AssetMapper, OpenPGP.js, Bootstrap
+- **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
 - **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
 - **Testing:** PHPUnit 9.5
 
@@ -166,9 +199,13 @@ config/pgp/
 
 ---
 
+## Project History
+
+Lockpost started as a university project for an *Advanced Programming Techniques* course, originally developed at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony). It has since been redesigned and extended into a production-ready application.
+
+---
+
 ## Future Plans
 
-- HSM integration
-- Mobile support
-- Localization
-- Advanced key management / automated rotation
+- Deploy it live
+- Better looks
