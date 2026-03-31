@@ -24,7 +24,7 @@ Enter your PGP-associated email address. The app looks up your public key on pub
 
 Copy the link and send it to whoever needs to contact you — by email, chat, or any other channel.
 
-![Shareable link ready](docs/screenshots/sharable-link.png)
+![Shareable link ready](docs/screenshots/shareable-link.png)
 
 ---
 
@@ -178,8 +178,7 @@ docker-compose down
 | `PgpKeyService` | Looks up public keys from key servers (keys.openpgp.org, keyserver.ubuntu.com, pgp.mit.edu) |
 | `PgpSigningService` | Signs outgoing messages and verifies signatures using the server's GnuPG key |
 
-### Tech stack 
-leftover from my initial development done at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony)
+### Tech stack
 
 - **Backend:** PHP 8.3, Symfony 7.1
 - **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
@@ -197,6 +196,12 @@ config/pgp/
   key-config/       # GnuPG home directory
     gpg.conf        # GPG config (pinentry-mode loopback, no-protection)
 ```
+
+---
+
+## Project History
+
+Lockpost started as a university project for an *Advanced Programming Techniques* course, originally developed at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony). It has since been redesigned and extended into a production-ready application.
 
 ---
 
