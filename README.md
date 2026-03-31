@@ -4,7 +4,7 @@
 
 [![GitLab](https://img.shields.io/badge/GitLab-Main_Repository-orange.svg)](https://gitlab.com/zer0lis/sym-pgp-ony)
 
-> This is a mirror repository. Primary development is at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony).
+> This is a mirror repository. Initial development was done at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony).
 
 ## Overview
 
