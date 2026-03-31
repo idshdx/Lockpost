@@ -201,7 +201,7 @@ config/pgp/
 
 ## Project History
 
-Lockpost started as a university project for an *Advanced Programming Techniques* course, originally developed at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony). It has since been redesigned and extended into a production-ready application.
+Lockpost started as a project for TAP or *Advanced Programming Techniques*, originally designed and developed at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony). It has since been redesigned and extended into a production-ready application.
 
 ---
 
