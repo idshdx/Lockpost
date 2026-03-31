@@ -71,7 +71,11 @@ class DefaultController extends AbstractController
                 $email = $form->get('email')->getData();
 
                 if (!$this->pgpKeyService->verifyPublicKeyExists($email)) {
-                    $this->addFlash('danger', 'No valid PGP public key found for this email address');
+                    $servers = implode("\n", array_map(
+                        fn(string $host) => "https://$host",
+                        PgpKeyService::getKeyServerNames()
+                    ));
+                    $this->addFlash('danger', "No valid PGP public key found for this email address.\nKeys were searched on:\n$servers");
                     return $this->render('default/index.html.twig', [
                         'form' => $form->createView()
                     ]);
@@ -108,29 +112,20 @@ class DefaultController extends AbstractController
      *                  or an error message if the token is invalid or expired.
      */
     #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\-]++'])]
-
     public function submit(string $token): Response
     {
         try {
             $email = $this->linkService->validateLink($token);
             $publicKey = $this->pgpKeyService->getPublicKeyByEmail($email);
-    /**
-     * @Route("/message/submit", name="app_submit_message", methods={"POST"})
-     *
-     * @param Request $request
-     * @param ValidatorInterface $validator
-     *
-     * @return Response
-     *
-     * @throws Exception
-     */
+
             return $this->render('default/submit.html.twig', [
                 'email' => $email,
                 'publicKey' => $publicKey
             ]);
-
         } catch (Exception $e) {
-            return $this->errorHandler->handleControllerException($e, 'Invalid or expired link');
+            $this->logger->error('Invalid or expired link', ['error' => $e->getMessage()]);
+            $this->addFlash('danger', 'This link is invalid or has expired. Ask for a new one. Or use the form below to generate a link');
+            return $this->redirectToRoute('app_home');
         }
     }
 
@@ -195,7 +190,7 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
                 'message' => $dto->getEncryptedMessage(),
                 'message_signature' => $signedMessage,
                 'server_public_key' => $this->pgpSigningService->getServerPublicKey(),
-                'app_verify_url' => $this->generateUrl('app_verify')
+                'app_verify_url' => $this->generateUrl('app_verify'),
             ]));
 
         $this->mailer->send($email);
@@ -231,11 +226,8 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
     #[Route('/verify', name: 'app_verify')]
     public function verifySignaturePage(Request $request): Response
     {
-        $form = $this->createForm(PgpVerifySignatureFormType::class);
-        $form->handleRequest($request);
-
         return $this->render('default/verify.html.twig', [
-            'form' => $form->createView(),
+            'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
         ]);
     }
 
@@ -284,6 +276,18 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
         }
 
         return $this->redirectToRoute('app_verify');
+    }
+
+    #[Route('/about', name: 'app_about')]
+    public function about(): Response
+    {
+        return $this->render('default/about.html.twig');
+    }
+
+    #[Route('/privacy', name: 'app_privacy')]
+    public function privacy(): Response
+    {
+        return $this->render('default/privacy.html.twig');
     }
 
     /**

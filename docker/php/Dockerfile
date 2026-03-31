@@ -46,14 +46,15 @@ COPY --from=builder /usr/local/etc/php/conf.d /usr/local/etc/php/conf.d
 COPY --from=builder /usr/local/bin/composer /usr/local/bin/composer
 
 # Install runtime dependencies only
-RUN apt-get -qq update && apt-get -qq -y install \
+# Use stable package names (no version suffixes) for Debian Bookworm compatibility
+RUN apt-get -qq update && apt-get -qq -y --no-install-recommends install \
     gnupg \
     libgpgme11 \
-    libicu72 \
-    libzip4 \
-    libpng16-16 \
-    libfreetype6 \
-    libjpeg62-turbo \
+    libicu-dev \
+    libzip-dev \
+    libpng-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/app
@@ -70,3 +71,10 @@ RUN echo "use-agent" > /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-emit-version" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "no-comments" >> /var/www/app/config/pgp/key-config/gpg.conf && \
     echo "export-options export-minimal" >> /var/www/app/config/pgp/key-config/gpg.conf
+
+# Entrypoint: fixes var/ and config/pgp/ ownership before PHP-FPM starts
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm"]

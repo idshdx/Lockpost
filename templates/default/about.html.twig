@@ -1,0 +1,53 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}About — Lockpost{% endblock %}
+
+{% block body %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+
+        <h1>About Lockpost</h1>
+
+        <section aria-labelledby="what-it-does-heading" class="mb-5">
+            <h2 id="what-it-does-heading">What is Lockpost?</h2>
+            <p>Lockpost lets you receive sensitive messages from anyone — even people who have never used encryption before. You share a link; they type a message; it arrives in your inbox already encrypted, readable only by you.</p>
+            <p>No accounts, no passwords, no stored data. Just a link and your existing PGP key.</p>
+        </section>
+
+        <section aria-labelledby="how-it-works-heading" class="mb-5">
+            <h2 id="how-it-works-heading">How it works</h2>
+            <ol class="list-group list-group-numbered list-group-flush mb-3">
+                <li class="list-group-item bg-transparent">
+                    <strong>Generate a link.</strong> Enter the email address associated with your PGP public key. We look up your key and create a unique, time-limited link just for you.
+                </li>
+                <li class="list-group-item bg-transparent">
+                    <strong>Share the link.</strong> Send it to anyone you want to receive a message from — by email, chat, or however you like.
+                </li>
+                <li class="list-group-item bg-transparent">
+                    <strong>They write, the browser encrypts.</strong> When your contact opens the link and types their message, it is encrypted directly in their browser using your public key before anything is sent. The server never sees the plain text.
+                </li>
+                <li class="list-group-item bg-transparent">
+                    <strong>You receive and decrypt.</strong> The encrypted message is emailed to you. Open it with your PGP private key — only you can read it.
+                </li>
+            </ol>
+        </section>
+
+        <section aria-labelledby="zero-storage-heading" class="mb-5">
+            <h2 id="zero-storage-heading">Zero storage</h2>
+            <p>Messages are never stored on our servers. Once the encrypted message is sent to your inbox, it is gone from our systems. There is no database of messages, no inbox to breach, nothing to subpoena.</p>
+        </section>
+
+        <section aria-labelledby="no-tracking-heading" class="mb-5">
+            <h2 id="no-tracking-heading">No tracking</h2>
+            <p>We do not use cookies, analytics scripts, or any third-party tracking technology. We do not know who visits this site, how often, or from where. Your privacy is the point, not an afterthought.</p>
+        </section>
+
+        <div class="text-center mt-4">
+            <a href="{{ path('app_home') }}" class="btn btn-primary btn-lg">
+                Generate a secure link
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

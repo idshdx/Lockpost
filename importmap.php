@@ -25,4 +25,7 @@ return [
     '@hotwired/turbo' => [
         'version' => '7.3.0',
     ],
+    'openpgp' => [
+        'path' => './assets/vendor/openpgp.min.js',
+    ],
 ];

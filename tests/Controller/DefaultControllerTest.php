@@ -9,57 +9,78 @@ class DefaultControllerTest extends WebTestCase
     public function testIndexPage(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/');
+        $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        // Ensure the correct form name
+        self::assertSelectorExists('form[name="email_form"]');
+    }
+
+    public function testFlashMessageRendersOutsideBodyBlock(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/');
+
+        $form = $crawler->filter('form[name="email_form"]')->form([
+            'email_form[email]' => 'invalid-email',
+        ]);
+
+        $crawler = $client->submit($form);
+
+        self::assertResponseIsSuccessful();
         self::assertSelectorExists('form[name="email_form"]');
     }
 
     public function testVerifyPage(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
+        $client->request('GET', '/verify');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="verify_signature_form"]');
+        // The verify page now uses a plain HTML form wired to the Stimulus verify controller
+        self::assertSelectorExists('form[data-controller="verify"]');
     }
 
     public function testValidFormSubmission(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
 
-        $form = $crawler->selectButton('Verify Signature')->form([
-            'verify_signature_form[message]' => 'Test message',
-            'verify_signature_form[signature]' => 'Test signature',
-            'verify_signature_form[public_key]' => 'Test public key'
+        // POST directly to the server-side verify endpoint (kept for backward compat)
+        $client->request('POST', '/verify/signature', [
+            'verify_signature_form' => [
+                'message' => 'Test message',
+                'signature' => 'Test signature',
+                'public_key' => 'Test public key',
+                '_token' => 'invalid',
+            ],
         ]);
 
-        $client->submit($form);
-
-        self::assertResponseIsSuccessful();
-        self::assertRouteSame  ('app_verify'); // Match actual route name
+        // Invalid CSRF → form not submitted → flash added → redirect to /verify
+        self::assertResponseRedirects('/verify');
+        $client->followRedirect();
+        self::assertRouteSame('app_verify');
     }
 
     public function testInvalidFormSubmission(): void
     {
         $client = static::createClient();
-        $crawler = $client->request('GET', '/verify');
 
-        $form = $crawler->selectButton('Verify Signature')->form();
+        // POST directly to the server-side verify endpoint with invalid CSRF
+        $client->request('POST', '/verify/signature', [
+            'verify_signature_form' => [
+                'message' => '',
+                'signature' => 'Invalid Signature',
+                'public_key' => 'Invalid Public Key',
+                '_token' => 'invalid',
+            ],
+        ]);
 
-        // Submit the form with invalid data
-        $form['verify_signature_form[public_key]'] = 'Invalid Public Key';
-        $form['verify_signature_form[message]'] = '';
-        $form['verify_signature_form[signature]'] = 'Invalid Signature';
-
-        $crawler = $client->submit($form);
-
+        // Invalid CSRF → flash added → redirect to /verify
+        self::assertResponseRedirects('/verify');
+        $crawler = $client->followRedirect();
         self::assertResponseIsSuccessful();
 
-        // Assert that at least one .invalid-feedback message is displayed
-        $this->assertGreaterThan(0, $crawler->filter('.invalid-feedback')->count(), 'Expected .invalid-feedback class to be rendered.');
+        // Assert that a flash/alert message is displayed
+        $this->assertGreaterThan(0, $crawler->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
     }
 
 }

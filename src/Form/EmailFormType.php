@@ -16,7 +16,7 @@ class EmailFormType extends AbstractType
     {
         $builder
             ->add('email', EmailType::class, [
-                'label' => 'Your Email Address',
+                'label' => 'Where to receive the message',
                 'attr' => [
                     'class' => 'form-control',
                     'placeholder' => 'Enter your email address'
@@ -27,7 +27,7 @@ class EmailFormType extends AbstractType
                 ]
             ])
             ->add('submit', SubmitType::class, [
-                'label' => 'Generate Link',
+                'label' => 'Generate',
                 'attr' => ['class' => 'btn btn-primary mt-3']
             ]);
     }

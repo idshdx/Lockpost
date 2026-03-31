@@ -1,29 +1,57 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Generate Secure Message Link{% endblock %}
+{% block title %}Generate Secure Link — Lockpost{% endblock %}
 
 {% block body %}
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card mt-5">
-                    <div class="card-body">
-                        <h2 class="card-title text-center mb-4">Generate Secure Message Link</h2>
-                        <div class="alert alert-info mb-4">
-                            <h5>How it works:</h5>
-                            <ol class="mb-0">
-                                <li>Enter your email address that has a public PGP key published on key servers</li>
-                                <li>Get a secure link to share with someone who needs to send you an encrypted message</li>
-                                <li>When they use the link, their message will be encrypted with your public key</li>
-                                <li>You'll receive the encrypted message in your email</li>
-                            </ol>
-                        </div>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="text-center mb-4">
+                <img src="{{ asset('logo.png') }}"
+                     alt="Lockpost"
+                     class="img-fluid"
+                     style="max-width:96px;height:auto;">
+            </div>
 
-                        {{ form_start(form) }}
-                        {{ form_widget(form) }}
-                        {{ form_end(form) }}
-                    </div>
+            <h1 class="mb-4 text-center" id="page-heading">Create new link</h1>
+
+            <div class="alert alert-info mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="h6 mb-0" id="how-it-works-heading">How it works</h2>
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#home-how-it-works"
+                            aria-expanded="false"
+                            aria-controls="home-how-it-works">
+                        Show / Hide
+                    </button>
                 </div>
+                <div class="collapse" id="home-how-it-works">
+                    <ol class="mt-2 mb-0">
+                        <li>Enter your email address that has a public PGP key published on key servers.</li>
+                        <li>Generate a shareable link you can send to anyone who needs to contact you securely.</li>
+                        <li>The recipient opens the link to write you the message, which is encrypted client-side in their browser before it ever leaves their device.</li>
+                        <li>The server signs the message and forwards it to your mailbox.</li>
+                        <li>Decrypt it with your private PGP key, and optionally check the signature if it matches the server's.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div data-controller="home-form">
+                {{ form_start(form, {'attr': {
+                    'aria-labelledby': 'page-heading',
+                    'novalidate': 'novalidate',
+                    'data-action': 'submit->home-form#submit',
+                    'data-home-form-target': 'form'
+                }}) }}
+                {{ form_errors(form) }}
+                {{ form_widget(form) }}
+
+                <div class="d-none mt-3" data-home-form-target="loading">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Looking up PGP key&hellip;
+                </div>
+
+                {{ form_end(form) }}
             </div>
         </div>
     </div>
