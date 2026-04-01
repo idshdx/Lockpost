@@ -201,7 +201,8 @@ config/pgp/
 
 ## Project History
 
-Lockpost started as a project for TAP or *Advanced Programming Techniques*, originally designed and developed at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony). It has since been redesigned and extended into a production-ready application.
+Lockpost started as a project for *Advanced Programming Techniques* TAP, originally made at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony)
+It has since been extended into a second version and named Lockpost, as a reminder I never never knew how to type symphony, symfony or simfony
 
 ---
 
