@@ -40,3 +40,4 @@ docker/mysql
 scripts/php-docker.bat
 *.code-workspace
 .kiro/settings/mcp.json
+.kiro/

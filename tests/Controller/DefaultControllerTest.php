@@ -83,4 +83,51 @@ class DefaultControllerTest extends WebTestCase
         $this->assertGreaterThan(0, $crawler->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
     }
 
+    /**
+     * Requirement 9.3: APP_MAIL_FROM env var must be used as the From address.
+     *
+     * The `app.mail_from` DI parameter is wired to `%env(APP_MAIL_FROM)%` in
+     * config/services.yaml. This test verifies that, in the test environment
+     * (where .env.test sets APP_MAIL_FROM=noreply@example.com), the container
+     * resolves the parameter to that exact address — proving the env var is the
+     * source of truth for the outbound From header.
+     *
+     * Validates: Requirements 9.3
+     */
+    public function testAppMailFromParameterResolvesFromEnv(): void
+    {
+        $client = static::createClient();
+        $container = static::getContainer();
+
+        // .env.test defines APP_MAIL_FROM=noreply@example.com
+        $mailFrom = $container->getParameter('app.mail_from');
+
+        self::assertSame('noreply@example.com', $mailFrom);
+    }
+
+    /**
+     * Validates that /message/submit returns HTTP 400 with success=false when
+     * the required `recipient` field is absent from the JSON payload.
+     *
+     * Validates: Requirements 9.3, 9.4
+     */
+    public function testSubmitMessageReturnsErrorWhenRecipientMissing(): void
+    {
+        $client = static::createClient();
+
+        $client->request(
+            'POST',
+            '/message/submit',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['encryptedMessage' => '-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----'])
+        );
+
+        self::assertResponseStatusCodeSame(400);
+
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
 }
