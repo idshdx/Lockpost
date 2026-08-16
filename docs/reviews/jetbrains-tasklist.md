@@ -310,7 +310,7 @@ Acceptance Criteria:
 
 ### 10. Add Plain-Text Email Alternative
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Email / Accessibility / Compatibility  
 Files:
 
@@ -324,12 +324,12 @@ Only HTML email body was observed.
 
 Tasks:
 
-- [ ] Create plain-text email template.
-- [ ] Include encrypted message.
-- [ ] Include signed message.
-- [ ] Include server public key or download URL.
-- [ ] Use `$email->text(...)`.
-- [ ] Test email contains both HTML and text parts.
+- [x] Create plain-text email template.
+- [x] Include encrypted message.
+- [x] Include signed message.
+- [x] Include server public key or download URL.
+- [x] Use `$email->text(...)`.
+- [x] Test email contains both HTML and text parts.
 
 Acceptance Criteria:
 
