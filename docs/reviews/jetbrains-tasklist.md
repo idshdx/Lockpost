@@ -63,7 +63,7 @@ Acceptance Criteria:
 
 ### 2. Remove or Isolate Process-Global `GNUPGHOME` Mutation
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Security / Runtime Isolation  
 Files:
 
@@ -77,13 +77,13 @@ Problem:
 
 Tasks:
 
-- [ ] Investigate whether PHP `gnupg` extension supports explicit home directory configuration.
-- [ ] If supported, replace `putenv()` with explicit home directory config.
-- [ ] If unsupported, evaluate using Symfony Process with `gpg --homedir`.
-- [ ] Consider separate implementation paths for signing and verification.
-- [ ] Add tests proving verification does not affect signing keyring.
-- [ ] Add tests proving signing still works after failed verification.
-- [ ] Document operational constraints if `putenv()` must remain.
+- [x] Investigate whether PHP gnupg extension supports explicit home directory configuration.
+- [x] If supported, replace putenv() with explicit home directory config.
+- [x] If unsupported, evaluate using Symfony Process with gpg --homedir.
+- [x] Consider separate implementation paths for signing and verification.
+- [x] Add tests proving verification does not affect signing keyring.
+- [x] Add tests proving signing still works after failed verification.
+- [x] Document operational constraints if putenv() must remain.
 
 Acceptance Criteria:
 
