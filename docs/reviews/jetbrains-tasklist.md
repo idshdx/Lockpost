@@ -277,7 +277,7 @@ Acceptance Criteria:
 
 ### 9. Shorten Default Token Expiration
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Security / Product Policy  
 Files:
 
@@ -294,11 +294,11 @@ Default token lifetime is 30 days. Stateless tokens are reusable and non-revocab
 
 Tasks:
 
-- [ ] Make token lifetime configurable via environment variable.
-- [ ] Choose safer production default, e.g. 24 hours or 7 days.
-- [ ] Update README.
-- [ ] Add tests for custom expiration.
-- [ ] Add UI copy showing expiry.
+- [x] Make token lifetime configurable via environment variable.
+- [x] Choose safer production default, e.g. 24 hours or 7 days.
+- [x] Update README.
+- [x] Add tests for custom expiration.
+- [x] Add UI copy showing expiry.
 
 Acceptance Criteria:
 
