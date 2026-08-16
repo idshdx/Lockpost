@@ -15,3 +15,16 @@ framework:
       policy: sliding_window
       limit: 10
       interval: '1 hour'
+    # IP-based limiter for link generation (public key lookups).
+    # Prevents abuse of the keyserver lookup feature which makes
+    # outbound network requests.
+    link_generation:
+      policy: fixed_window
+      limit: 5
+      interval: '1 minute'
+    # Stricter limiter for failed key lookups — prevents brute-force
+    # email probing via the key lookup endpoint.
+    link_generation_failed:
+      policy: fixed_window
+      limit: 3
+      interval: '1 hour'
