@@ -59,7 +59,6 @@ class TokenLinkServiceTest extends TestCase
 
         $this->expectException(AppException::class);
         $this->expectExceptionMessage('tampered');
-
         $this->tokenLinkService->validateLink($tamperedToken);
     }
 
@@ -70,7 +69,6 @@ class TokenLinkServiceTest extends TestCase
 
         $this->expectException(AppException::class);
         $this->expectExceptionMessage('expired');
-
         $this->tokenLinkService->validateLink($token);
     }
 
@@ -139,9 +137,123 @@ class TokenLinkServiceTest extends TestCase
         $this->assertSame(86400, $serviceCustom->getExpirationPeriod());
     }
 
+    // --- Security Test Suite (Task 23) ---
+
     /**
-     * Generates an expired token for a given service instance using its
-     * internal encryption logic with a past expiration timestamp.
+     * Invalid base64 should be rejected without leaking internal state.
+     */
+    public function testInvalidBase64ThrowsAppException(): void
+    {
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink('@@@not-valid-base64@@@');
+    }
+
+    /**
+     * Tampering with the IV (first 16 bytes of the payload, after HMAC) should
+     * be detected because it changes the ciphertext and the HMAC will not match.
+     */
+    public function testTamperedIVIsDetected(): void
+    {
+        $token = $this->tokenLinkService->generateLink('user@example.com');
+        $decoded = base64_decode(strtr($token, '-_', '+/'));
+
+        // HMAC is 32 bytes, IV is the next 16 bytes — flip a bit in the IV
+        $tampered = substr($decoded, 0, 32) . (substr($decoded, 32, 16) ^ "\x01") . substr($decoded, 48);
+
+        $tamperedToken = rtrim(strtr(base64_encode($tampered), '+/', '-_'), '=');
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($tamperedToken);
+    }
+
+    /**
+     * Tampering with the ciphertext (after HMAC + IV) should be detected.
+     */
+    public function testTamperedCiphertextIsDetected(): void
+    {
+        $token = $this->tokenLinkService->generateLink('user@example.com');
+        $decoded = base64_decode(strtr($token, '-_', '+/'));
+
+        // HMAC is 32 bytes, IV is 16 bytes, ciphertext starts at byte 48
+        $tampered = substr($decoded, 0, 48) . (substr($decoded, 48, 1) ^ "\x01") . substr($decoded, 49);
+
+        $tamperedToken = rtrim(strtr(base64_encode($tampered), '+/', '-_'), '=');
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($tamperedToken);
+    }
+
+    /**
+     * Malformed JSON payload inside the encrypted data should be rejected.
+     */
+    public function testMalformedJsonPayloadIsRejected(): void
+    {
+        $token = $this->buildTokenWithEncryptedData('user@example.com', 'not-json-at-all');
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($token);
+    }
+
+    /**
+     * Missing 'email' key in the JSON payload should be rejected.
+     */
+    public function testMissingEmailPayloadIsRejected(): void
+    {
+        $token = $this->buildTokenWithEncryptedData('user@example.com', json_encode([
+            'exp'   => time() + 604800,
+            'nonce' => bin2hex(random_bytes(8)),
+        ], JSON_THROW_ON_ERROR));
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($token);
+    }
+
+    /**
+     * Missing 'exp' key in the JSON payload should be rejected.
+     */
+    public function testMissingExpirationPayloadIsRejected(): void
+    {
+        $token = $this->buildTokenWithEncryptedData('user@example.com', json_encode([
+            'email' => 'user@example.com',
+            'nonce' => bin2hex(random_bytes(8)),
+        ], JSON_THROW_ON_ERROR));
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($token);
+    }
+
+    /**
+     * Non-numeric 'exp' value should be rejected (should not default to valid).
+     */
+    public function testNonNumericExpirationIsRejected(): void
+    {
+        $token = $this->buildTokenWithEncryptedData('user@example.com', json_encode([
+            'email' => 'user@example.com',
+            'exp'   => 'not-a-number',
+            'nonce' => bin2hex(random_bytes(8)),
+        ], JSON_THROW_ON_ERROR));
+
+        $this->expectException(AppException::class);
+        $this->tokenLinkService->validateLink($token);
+    }
+
+    /**
+     * Secret rotation should invalidate all previously issued tokens.
+     */
+    public function testSecretRotationInvalidatesTokens(): void
+    {
+        $token = $this->tokenLinkService->generateLink('user@example.com');
+
+        // Create a service with a different secret
+        $rotatedService = new TokenLinkService('different-secret-32-characters!!!');
+
+        $this->expectException(AppException::class);
+        $rotatedService->validateLink($token);
+    }
+
+    /**
+     * Generates an expired token by directly using the service's internal
+     * encryption logic with a past expiration timestamp.
      */
     private function generateExpiredTokenForService(TokenLinkService $service, string $email, int $expiry): string
     {
@@ -170,8 +282,8 @@ class TokenLinkServiceTest extends TestCase
     }
 
     /**
-     * Generates an expired token by directly using the service's internal
-     * encryption logic with a past expiration timestamp.
+     * Generates a valid token for a given service instance using its
+     * internal encryption logic with a past expiration timestamp.
      */
     private function generateExpiredToken(string $email, int $expiry): string
     {
@@ -198,7 +310,33 @@ class TokenLinkServiceTest extends TestCase
         $encrypted = openssl_encrypt($data, $cipher, $encKey, OPENSSL_RAW_DATA, $iv);
 
         $payload = $iv . $encrypted;
+        $hmacKey = $deriveKey->invoke($service, 'lockpost-token-auth');
+        $hmac = hash_hmac('sha256', $payload, $hmacKey, true);
 
+        return rtrim(strtr(base64_encode($hmac . $payload), '+/', '-_'), '=');
+    }
+
+    /**
+     * Builds a token with arbitrary encrypted JSON payload for security testing.
+     * Uses the same internal crypto logic as generateLink but allows overriding
+     * the JSON payload (e.g., malformed JSON, missing fields, non-numeric exp).
+     */
+    private function buildTokenWithEncryptedData(string $email, string $jsonPayload): string
+    {
+        $service = $this->tokenLinkService;
+
+        $cipher = 'aes-256-cbc';
+        $ivlen = openssl_cipher_iv_length($cipher);
+        $iv = random_bytes($ivlen);
+
+        $reflection = new \ReflectionClass($service);
+        $deriveKey = $reflection->getMethod('deriveKey');
+        $deriveKey->setAccessible(true);
+
+        $encKey = $deriveKey->invoke($service, 'lockpost-token-enc');
+        $encrypted = openssl_encrypt($jsonPayload, $cipher, $encKey, OPENSSL_RAW_DATA, $iv);
+
+        $payload = $iv . $encrypted;
         $hmacKey = $deriveKey->invoke($service, 'lockpost-token-auth');
         $hmac = hash_hmac('sha256', $payload, $hmacKey, true);
 
