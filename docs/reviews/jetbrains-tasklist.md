@@ -249,7 +249,7 @@ Acceptance Criteria:
 
 ### 8. Add Rate Limiting to Link Generation
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Abuse Prevention  
 Files:
 
@@ -263,11 +263,11 @@ The homepage form triggers public key lookup, which performs outbound network re
 
 Tasks:
 
-- [ ] Add IP-based limiter for link generation.
-- [ ] Consider stricter limiter for failed key lookups.
-- [ ] Return friendly error when limited.
-- [ ] Add tests for link generation rate limiting.
-- [ ] Ensure limiter storage is production-suitable.
+- [x] Add IP-based limiter for link generation.
+- [x] Consider stricter limiter for failed key lookups.
+- [x] Return friendly error when limited.
+- [x] Add tests for link generation rate limiting.
+- [x] Ensure limiter storage is production-suitable.
 
 Acceptance Criteria:
 
