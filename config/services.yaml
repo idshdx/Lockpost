@@ -37,3 +37,4 @@ services:
             $passphrase: '%app.pgp.private_key_passphrase%'
             $keyConfigPath: '%app.pgp.key_config_path%'
             $publicKeyPath: '%app.pgp.public_key_path%'
+            $appEnv: '%kernel.environment%'

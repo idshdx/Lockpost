@@ -10,12 +10,15 @@ use App\Service\TokenLinkService;
 use App\Service\PgpKeyService;
 use App\Service\PgpSigningService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -23,29 +26,19 @@ use App\Exception\ErrorHandler;
 
 class DefaultController extends AbstractController
 {
-    private readonly LoggerInterface $logger;
-    private ErrorHandler $errorHandler;
-
-    /**
-     * DefaultController constructor.
-     *
-     * @param ErrorHandler $errorHandler
-     * @param TokenLinkService $linkService
-     * @param PgpKeyService $pgpKeyService
-     * @param PgpSigningService $pgpSigningService
-     * @param MailerInterface $mailer
-     * @param LoggerInterface $logger
-     */
     public function __construct(
-        ErrorHandler     $errorHandler,
+        private readonly ErrorHandler     $errorHandler,
         private readonly TokenLinkService $linkService,
         private readonly PgpKeyService $pgpKeyService,
         private readonly PgpSigningService $pgpSigningService,
         private readonly MailerInterface $mailer,
-        LoggerInterface $logger
+        private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly LoggerInterface $logger,
+        #[Autowire(service: 'limiter.submit_ip')]
+        private readonly RateLimiterFactory $submitIpLimiter,
+        #[Autowire(service: 'limiter.submit_token')]
+        private readonly RateLimiterFactory $submitTokenLimiter,
     ) {
-        $this->errorHandler = $errorHandler;
-        $this->logger = $logger;
     }
 
     /**
@@ -68,24 +61,10 @@ class DefaultController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $email = $form->get('email')->getData();
-
-                if (!$this->pgpKeyService->verifyPublicKeyExists($email)) {
-                    $servers = implode("\n", array_map(
-                        fn(string $host) => "https://$host",
-                        PgpKeyService::getKeyServerNames()
-                    ));
-                    $this->addFlash('danger', "No valid PGP public key found for this email address.\nKeys were searched on:\n$servers");
-                    return $this->render('default/index.html.twig', [
-                        'form' => $form->createView()
-                    ]);
+                $result = $this->generateLinkResponse($form->get('email')->getData());
+                if ($result !== null) {
+                    return $result;
                 }
-
-                $token = $this->linkService->generateLink($email);
-
-                return $this->render('default/link.html.twig', [
-                    'token' => $token
-                ]);
             } catch (Exception $e) {
                 return $this->errorHandler->handleControllerException($e, 'Could not retrieve PGP public key');
             }
@@ -93,6 +72,26 @@ class DefaultController extends AbstractController
 
         return $this->render('default/index.html.twig', [
             'form' => $form->createView()
+        ]);
+    }
+
+    /**
+     * Generates a token link if the PGP key exists; otherwise adds a flash warning.
+     * Returns a Response if a link was generated, null otherwise.
+     */
+    private function generateLinkResponse(string $email): ?Response
+    {
+        if (!$this->pgpKeyService->verifyPublicKeyExists($email)) {
+            $servers = implode("\n", array_map(
+                fn(string $host) => "https://$host",
+                PgpKeyService::getKeyServerNames()
+            ));
+            $this->addFlash('danger', "No valid PGP public key found for this email address.\nKeys were searched on:\n$servers");
+            return null;
+        }
+
+        return $this->render('default/link.html.twig', [
+            'token' => $this->linkService->generateLink($email)
         ]);
     }
 
@@ -111,7 +110,7 @@ class DefaultController extends AbstractController
      * @return Response Renders the submission page for the encrypted message form
      *                  or an error message if the token is invalid or expired.
      */
-    #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\-]++'])]
+    #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\\-]++'])]
     public function submit(string $token): Response
     {
         try {
@@ -120,6 +119,7 @@ class DefaultController extends AbstractController
 
             return $this->render('default/submit.html.twig', [
                 'email' => $email,
+                'token' => $token,
                 'publicKey' => $publicKey
             ]);
         } catch (Exception $e) {
@@ -149,43 +149,93 @@ class DefaultController extends AbstractController
      *
      * @return Response A JSON response containing the result of the message
      *                 submission.
-     * If the submission is successful, a success
-     *                 message is returned with a status code of 200.
-     * If the
-     *                 submission fails due to validation errors, an error message
-     *                 is returned with a status code of 400.
-     * If the submission
-     *                 fails due to an internal server error, an error message is
-     *                 returned with a status code of 500.
-     * @throws TransportExceptionInterface
      */
     #[Route('/message/submit', name: 'app_submit_message', methods: ['POST'])]
-public function submitMessage(Request $request, ValidatorInterface $validator): Response
-{
-    try {
-        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $dto = new MessageSubmitRequest($data);
-
-        $errors = $validator->validate($dto);
-
-        if (count($errors) > 0) {
-            $errorMessages = [];
-            foreach ($errors as $error) {
-                $errorMessages[] = $error->getMessage();
+    public function submitMessage(Request $request, ValidatorInterface $validator): Response
+    {
+        try {
+            $validationError = $this->validateAndResolveSubmission($request, $data, $validator);
+            if ($validationError !== null) {
+                return $validationError;
             }
 
+            $this->sendEncryptedMessageEmail($data, $data->getRecipientEmail());
+
             return $this->json([
-                'success' => false,
-                'errors' => $errorMessages
-            ], Response::HTTP_BAD_REQUEST);
+                'success' => true,
+                'message' => 'Message sent successfully'
+            ]);
+        } catch (Exception $e) {
+            return $this->handleSubmissionError($e);
+        }
+    }
+
+    /**
+     * Handles errors during message submission: logs the error and returns a JSON response.
+     */
+    private function handleSubmissionError(Exception $e): Response
+    {
+        $this->logger->error('Failed to submit message: ' . $e->getMessage(), ['exception' => $e]);
+        return $this->json([
+            'success' => false,
+            'error' => 'An internal error occurred while sending the message.'
+        ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+
+    /**
+     * Parses the request body and validates CSRF, rate limits, and form data.
+     * Returns an error Response if validation fails, null if valid.
+     * On success, sets $dto to the validated MessageSubmitRequest.
+     */
+    private function validateAndResolveSubmission(Request $request, ?MessageSubmitRequest &$dto, ValidatorInterface $validator): ?Response
+    {
+        $data = $this->parseRequestBody($request);
+        if ($data === null) {
+            return $this->jsonError('Invalid JSON payload', Response::HTTP_BAD_REQUEST);
         }
 
-        $signedMessage = $this->pgpSigningService->signMessage($dto->getEncryptedMessage());
+        $error = $this->validateSubmission($request, $data, $validator);
+        if ($error !== null) {
+            return $error;
+        }
 
+        $dto = new MessageSubmitRequest($data);
+
+        // Resolve the recipient email from the token, return error if invalid
+        $recipientEmail = $this->resolveRecipient($dto->getToken());
+        $dto->setRecipientEmail($recipientEmail ?? '');
+        if ($recipientEmail === null) {
+            return $this->jsonError('Invalid or expired submission token', Response::HTTP_BAD_REQUEST);
+        }
+
+        return null;
+    }
+
+    /**
+     * Parses JSON body from the request. Returns null if the body is not valid JSON or not an array.
+     */
+    private function parseRequestBody(Request $request): ?array
+    {
+        try {
+            $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Exception) {
+            return null;
+        }
+
+        return is_array($data) ? $data : null;
+    }
+
+    /**
+     * Signs the message with the server's private key and sends the encrypted
+     * message as an email to the recipient.
+     */
+    private function sendEncryptedMessageEmail(MessageSubmitRequest $dto, string $recipientEmail): void
+    {
+        $signedMessage = $this->pgpSigningService->signMessage($dto->getEncryptedMessage());
         $email = (new Email())
             ->from($this->getParameter('app.mail_from'))
-            ->to($dto->getRecipient())
-            ->subject('New PGP Message')
+            ->to($recipientEmail)
+            ->subject('New PGP Encrypted Message via Lockpost')
             ->html($this->renderView('email/message.html.twig', [
                 'message' => $dto->getEncryptedMessage(),
                 'message_signature' => $signedMessage,
@@ -194,19 +244,113 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
             ]));
 
         $this->mailer->send($email);
+    }
 
-        return $this->json([
-            'success' => true,
-            'message' => 'Message sent successfully'
-        ]);
+    /**
+     * Validates CSRF token and rate limits for message submission.
+     * Returns an error Response if validation fails, null if valid.
+     */
+    private function validateSubmission(Request $request, array $data, ValidatorInterface $validator): ?Response
+    {
+        $csrfToken = new CsrfToken('submit_message', $data['_csrf_token'] ?? '');
+        if (!$this->csrfTokenManager->isTokenValid($csrfToken)) {
+            return $this->jsonError('Invalid or missing CSRF token', Response::HTTP_BAD_REQUEST);
+        }
 
-    } catch (Exception $e) {
+        $rateLimitError = $this->checkRateLimits($request, $data);
+        if ($rateLimitError !== null) {
+            return $rateLimitError;
+        }
+
+        $dto = new MessageSubmitRequest($data);
+        $validationError = $this->validateDto($dto, $validator);
+        if ($validationError !== null) {
+            return $validationError;
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks IP and token-based rate limits.
+     * Returns an error Response if a limit is exceeded, null if OK.
+     */
+    private function checkRateLimits(Request $request, array $data): ?Response
+    {
+        $ipKey = $request->getClientIp() ?? 'unknown_ip';
+        $ipLimiter = $this->submitIpLimiter->create($ipKey);
+        $ipLimitResult = $ipLimiter->consume();
+        if (!$ipLimitResult->isAccepted()) {
+            $retryAfter = max(1, $ipLimitResult->getRetryAfter()->getTimestamp() - time());
+            return $this->json([
+                'success' => false,
+                'error' => 'Too many requests. Please try again later.'
+            ], Response::HTTP_TOO_MANY_REQUESTS, [
+                'Retry-After' => $retryAfter,
+                'X-RateLimit-Limit' => 5,
+                'X-RateLimit-Remaining' => 0,
+            ]);
+        }
+
+        $tokenRaw = $data['token'] ?? $data['recipient'] ?? '';
+        $tokenKey = hash('sha256', $tokenRaw);
+        $tokenLimiter = $this->submitTokenLimiter->create($tokenKey);
+        $tokenLimitResult = $tokenLimiter->consume();
+        if (!$tokenLimitResult->isAccepted()) {
+            $retryAfter = max(1, $tokenLimitResult->getRetryAfter()->getTimestamp() - time());
+            return $this->json([
+                'success' => false,
+                'error' => 'Too many submissions for this link. Please try again later.'
+            ], Response::HTTP_TOO_MANY_REQUESTS, [
+                'Retry-After' => $retryAfter,
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Validates the DTO and returns an error Response if validation fails.
+     */
+    private function validateDto(MessageSubmitRequest $dto, ValidatorInterface $validator): ?Response
+    {
+        $errors = $validator->validate($dto);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[] = $error->getMessage();
+            }
+            return $this->json([
+                'success' => false,
+                'errors' => $errorMessages
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        return null;
+    }
+
+    /**
+     * Validates the token and returns the recipient email, or null on failure.
+     */
+    private function resolveRecipient(string $token): ?string
+    {
+        try {
+            return $this->linkService->validateLink($token);
+        } catch (AppException) {
+            return null;
+        }
+    }
+
+    /**
+     * Helper to return a standard error JSON response.
+     */
+    private function jsonError(string $error, int $status): Response
+    {
         return $this->json([
             'success' => false,
-            'error' => $e->getMessage()
-        ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            'error' => $error
+        ], $status);
     }
-}
 
     /**
      * Renders the PGP signature verification page.
@@ -252,14 +396,12 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
         if (!$form->isSubmitted() || !$form->isValid()) {
             $this->addFlash('danger', 'Invalid form submission. Please check your input.');
             return $this->redirectToRoute('app_verify');
-
         }
 
         try {
             $data = $form->getData();
             $isValid = $this->pgpSigningService->verifySignature(
-                $data['message'],
-                $data['signature'],
+                $data['signed_message'],
                 $data['public_key']
             );
 
@@ -272,7 +414,7 @@ public function submitMessage(Request $request, ValidatorInterface $validator): 
             $request->getSession()->set('last_verification_result', $isValid);
         } catch (Exception $e) {
             $this->logger->error('Signature verification error: ' . $e->getMessage());
-            $this->addFlash('danger', 'Error during verification: ' . $e->getMessage());
+            $this->addFlash('danger', 'Error during verification. Please check your inputs and try again.');
         }
 
         return $this->redirectToRoute('app_verify');

@@ -3,127 +3,148 @@
 namespace App\Service;
 
 use App\Exception\AppException;
-use App\Exception\ErrorHandler;
 use Exception;
 use gnupg;
 
 class PgpSigningService
 {
-    private string $privateKeyPath;
-    private string $passphrase;
-    private string $keyConfigPath;
-    private string $publicKeyPath;
-    private const GNUPG_SIGSUM_VALID = 0;
+    private readonly string $privateKeyPath;
+    private readonly string $passphrase;
+    private readonly string $keyConfigPath;
+    private readonly string $publicKeyPath;
+    private readonly string $appEnv;
 
-/**
- * PgpSigningService constructor.
- *
- * Initializes the PgpSigningService with the necessary paths and settings
- * for GnuPG operations.
- *
- * @param ErrorHandler $errorHandler  The error handler for managing exceptions.
- * @param string       $privateKeyPath Path to the private key file.
- * @param string       $passphrase     The passphrase for the private key.
- * @param string       $keyConfigPath  Path to the GnuPG key configuration directory.
- * @param string       $publicKeyPath  Path to the public key file.
- *
- * @throws AppException If GnuPG initialization fails due to an invalid passphrase.
- */
+    /**
+     * Cached, pre-initialized GnuPG instance for signing operations.
+     * Imported and sign-key set once in the constructor to avoid
+     * re-importing the private key on every sign() call.
+     */
+    private readonly gnupg $gpgSigner;
+
+    /**
+     * @param string $privateKeyPath Path to the server's PGP private key file.
+     * @param string $passphrase     Passphrase for the private key (empty string for no-protection keys).
+     * @param string $keyConfigPath  Path to the GnuPG GNUPGHOME directory for the signing keyring.
+     * @param string $publicKeyPath  Path to the server's PGP public key file.
+     * @param string $appEnv         The application environment (dev, prod, test).
+     *
+     * @throws AppException If the private key cannot be read, imported, or if the passphrase is wrong.
+     *                      Also throws if APP_ENV is prod/test and passphrase is empty.
+     */
     public function __construct(
         string $privateKeyPath,
         string $passphrase,
         string $keyConfigPath,
-        string $publicKeyPath
+        string $publicKeyPath,
+        string $appEnv
     ) {
+        // In production, a passphrase-protected signing key is mandatory.
+        // A no-protection key on a production server means the private key
+        // on disk is unencrypted — an unacceptable risk if the disk is compromised.
+        if (in_array($appEnv, ['prod', 'test'], true) && $passphrase === '') {
+            throw new AppException('PGP private key passphrase is required in non-dev environments');
+        }
+
         $this->privateKeyPath = $privateKeyPath;
         $this->passphrase = $passphrase;
         $this->keyConfigPath = $keyConfigPath;
         $this->publicKeyPath = $publicKeyPath;
+        $this->appEnv = $appEnv;
+
+        // Runtime permission checks for key material.
+        // Docker enforces permissions at build time; these checks catch
+        // host-level bind-mount mistakes, bad umasks, or manual overrides.
+        $this->validateKeyFilePermissions();
+
+        // Set GNUPGHOME once for this process worker — signing always uses the
+        // server keyring. verifySignature() overrides this with a temp dir per call.
+        putenv("GNUPGHOME={$this->keyConfigPath}");
 
         try {
-            $this->initializeGnuPG();
+            $this->gpgSigner = $this->buildSigningGpg();
         } catch (Exception $e) {
-            throw new AppException('Initialization error');
+            $message = $e instanceof AppException ? $e->getMessage() : 'Initialization error';
+            throw new AppException($message, 0, $e);
         }
     }
 
     /**
-     * Initialize GnuPG with the provided private key and passphrase.
+     * Build and return an initialized gnupg instance with the signing key loaded.
+     * Called once from the constructor and cached in $gpgSigner.
      *
-     * This method will throw an AppException if the passphrase is invalid.
-     *
-     * @return gnupg The initialized gnupg object.
-     *
-     * @throws AppException If the passphrase is invalid or if there is an error
-     *                      initializing gnupg.
+     * @throws AppException
      */
-    private function initializeGnuPG(): gnupg
+    private function buildSigningGpg(): gnupg
     {
-        putenv("GNUPGHOME={$this->keyConfigPath}");
         $gpg = new gnupg();
         $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
-        try {
-            $privateKeyData = file_get_contents($this->privateKeyPath);
-            if ($privateKeyData === false) {
-                throw new AppException('Private key not found');
-            }
-
-            $privateKeyInfo = $gpg->import($privateKeyData);
-            if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
-                throw new AppException('Private key mismatch');
-            }
-
-            try {
-                $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
-            } catch (Exception $e) {
-                throw new AppException('Invalid passphrase');
-            }
-
-            return $gpg;
-        } catch (AppException $e) {
-            throw $e;
-        } catch (Exception $e) {
-            throw new AppException('Initialization error');
+        $privateKeyData = file_get_contents($this->privateKeyPath);
+        if ($privateKeyData === false) {
+            throw new AppException('Private key not found');
         }
+
+        $privateKeyInfo = $gpg->import($privateKeyData);
+        if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
+            throw new AppException('Private key mismatch');
+        }
+
+        try {
+            $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
+        } catch (Exception $e) {
+            throw new AppException('Invalid passphrase', 0, $e);
+        }
+
+        return $gpg;
     }
 
     /**
-     * Signs a given message using the server's private key and returns the
-     * generated signature.
+     * Signs a message using the server's private key.
      *
-     * @param string $message The message to sign.
-     * @return string The generated signature.
-     * @throws AppException If the signing failed.
+     * Returns a combined cleartext-signed PGP block
+     * (-----BEGIN PGP SIGNED MESSAGE----- … -----END PGP SIGNATURE-----).
+     *
+     * @param string $message The plaintext message to sign.
+     * @return string The combined PGP cleartext-signed block.
+     * @throws AppException If signing fails.
      */
     public function signMessage(string $message): string
     {
         try {
-            $gpg = $this->initializeGnuPG();
-            $signature = $gpg->sign($message);
+            putenv("GNUPGHOME={$this->keyConfigPath}");
+            $signature = $this->gpgSigner->sign($message);
             if ($signature === false) {
                 throw new AppException('Invalid signature error');
             }
             return $signature;
+        } catch (AppException $e) {
+            throw $e;
         } catch (Exception $e) {
-            throw new AppException('Unexpected error during signing: ' . $e->getMessage());
+            throw new AppException('Unexpected error during signing', 0, $e);
         }
     }
 
     /**
+     * Verifies a combined PGP cleartext-signed message against a public key.
      *
-     * @param string $message The message to verify the signature for.
-     * @param string $signature The signature to verify.
-     * @param string $publicKey The public PGP key to use for verification.
+     * Each call creates an isolated temporary GnuPG home directory so that
+     * untrusted user-supplied public keys never pollute the server's signing
+     * keyring, and there is no process-global putenv() race between workers.
      *
-     * @return bool True if the signature is valid for the given message and public key, false otherwise.
+     * @param string $signedMessage The combined -----BEGIN PGP SIGNED MESSAGE----- block.
+     * @param string $publicKey     The armored public key to verify against.
      *
+     * @return bool True if the signature is valid, false otherwise.
      * @throws AppException If an unexpected error occurs during verification.
      */
-    public function verifySignature(string $message, string $signature, string $publicKey): bool
+    public function verifySignature(string $signedMessage, string $publicKey): bool
     {
+        // Create an isolated temporary keyring for this verification call.
+        $tmpHome = rtrim(sys_get_temp_dir(), '/\\') . '/gpg_' . bin2hex(random_bytes(8));
+        mkdir($tmpHome, 0700, true);
+
         try {
-            putenv("GNUPGHOME={$this->keyConfigPath}");
+            putenv("GNUPGHOME={$tmpHome}");
             $gpg = new gnupg();
             $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
@@ -132,32 +153,36 @@ class PgpSigningService
                 throw new AppException('Invalid public key format');
             }
 
-            $info = $gpg->verify($signature, $message);
+            // For combined cleartext-signed messages, pass the full signed block
+            // as the first argument and false as the second (no separate plaintext).
+            $info = $gpg->verify($signedMessage, false);
             if (!is_array($info) || empty($info)) {
                 throw new AppException('Verification error');
             }
 
             foreach ($info as $sig) {
-                if (isset($sig['summary']) && $sig['summary'] === self::GNUPG_SIGSUM_VALID) {
+                if (isset($sig['summary']) && ($sig['summary'] & GNUPG_SIGSUM_RED) === 0) {
                     return true;
                 }
             }
 
-            throw new AppException('Verification error');
+            return false;
+        } catch (AppException $e) {
+            throw $e;
         } catch (Exception $e) {
-            throw new AppException('Unexpected error during signature verification: ' . $e->getMessage());
+            throw new AppException('Unexpected error during signature verification', 0, $e);
+        } finally {
+            // Restore GNUPGHOME to the signing keyring and clean up the temp dir.
+            putenv("GNUPGHOME={$this->keyConfigPath}");
+            $this->removeTempDir($tmpHome);
         }
     }
 
     /**
      * Returns the server's public key as a string.
      *
-     * Reads the public key from the configured file path and returns it as a string.
-     * If the file is not readable or does not exist, an AppException is thrown with
-     * a descriptive error message.
-     *
-     * @return string The server's public key as a string.
-     * @throws AppException If there is an error reading the public key.
+     * @return string The PGP public key in armored format.
+     * @throws AppException If the key file cannot be read.
      */
     public function getServerPublicKey(): string
     {
@@ -167,9 +192,57 @@ class PgpSigningService
                 throw new AppException('Failed to read server public key file');
             }
             return $publicKey;
+        } catch (AppException $e) {
+            throw $e;
         } catch (Exception $e) {
-            throw new AppException('Failed to read server public key: ' . $e->getMessage());
+            throw new AppException('Failed to read server public key', 0, $e);
         }
     }
 
+    /**
+     * Recursively removes a temporary directory and all its contents.
+     */
+    private function removeTempDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            if ($file->isDir()) {
+                @rmdir($file->getRealPath());
+            } else {
+                @unlink($file->getRealPath());
+            }
+        }
+        @rmdir($dir);
+    }
+
+    /**
+     * Validate runtime permissions for PGP key files and keying directories.
+     *
+     * Checks that:
+     * - private key is not accessible by group or others (read or write)
+     *
+     * @throws AppException If a critical permission check fails.
+     */
+    private function validateKeyFilePermissions(): void
+    {
+        $privateKey = $this->privateKeyPath;
+
+        if (!is_file($privateKey) || !is_readable($privateKey)) {
+            throw new AppException('PGP private key file is missing or unreadable');
+        }
+
+        $privatePerms = fileperms($privateKey) ?: 0;
+
+        // Private key must be accessible only by its owner.
+        // 0o077 covers group/others read/write/execute bits.
+        if (($privatePerms & 0o077) !== 0) {
+            throw new AppException('PGP private key must not be accessible by group or others');
+        }
+    }
 }

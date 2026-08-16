@@ -2,22 +2,22 @@ import { Controller } from '@hotwired/stimulus';
 import * as openpgp from 'openpgp';
 
 
-export default class extends Controller {
+export default class SubmitController extends Controller {
     static targets = ['message', 'feedback', 'loading', 'submitBtn'];
     static values = {
+        token: String,
         recipient: String,
         publicKey: String,
         submitUrl: String,
         homeUrl: String,
+        csrfToken: String,
     };
 
     connect() {
-        try {
-            if (!openpgp) {
-                this._showFeedback('danger', 'Encryption library failed to load. Please reload the page.');
-                this.submitBtnTarget.disabled = true;
-            }
-        } catch (e) {
+        // If openpgp failed to load the import itself would have thrown.
+        // The `if (!openpgp)` check handles edge cases where the module
+        // is present but not fully initialized.
+        if (!openpgp) {
             this._showFeedback('danger', 'Encryption library failed to load. Please reload the page.');
             this.submitBtnTarget.disabled = true;
         }
@@ -36,10 +36,16 @@ export default class extends Controller {
                 encryptionKeys: publicKey,
             });
 
+            const token = this.tokenValue || this.recipientValue;
             const response = await fetch(this.submitUrlValue, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ encrypted, recipient: this.recipientValue }),
+                body: JSON.stringify({
+                    encrypted,
+                    token: token,
+                    recipient: this.recipientValue,
+                    _csrf_token: this.csrfTokenValue,
+                }),
             });
 
             if (response.ok) {

@@ -70,7 +70,7 @@ Paste the signed message and the server's public key into the Verify page to con
 
 ```bash
 git clone <repo-url>
-cd lockpost
+cd sym-pgp-ony
 cp .env.example .env
 ```
 
@@ -79,43 +79,64 @@ The defaults in `.env.example` work for local Docker dev. The only value you may
 ### 2. Start containers
 
 ```bash
-docker-compose up -d
+docker compose up --build -d
 ```
 
-This starts three containers: `php` (PHP 8.3-FPM), `nginx` (reverse proxy on port 80), and `mailhog` (local mail catcher).
+This starts three containers: `php` (PHP 8.3-FPM with Xdebug), `nginx` (reverse proxy on port **8080**), and `mailhog` (local mail catcher on port 8025).
+
+> **Note on ports:** If port 80 is already in use by another service (e.g. YunoHost), the app is available at **http://localhost:8080**. If port 80 is free, you can change the port mapping in `docker-compose.yml` from `"8080:80"` to `"80:80"`.
 
 ### 3. Install PHP dependencies
 
 ```bash
-docker exec php composer install
+docker compose exec php composer install --no-scripts
 ```
 
-### 4. Generate the server PGP key pair
+> **Note:** `--no-scripts` skips the auto-scripts (cache:clear, assets:install, importmap:install). Run the next step to install frontend assets.
+
+### 4. Install frontend assets (importmap)
+
+```bash
+docker compose exec php php bin/console importmap:require @hotwired/stimulus openpgp
+docker compose exec php php bin/console importmap:install
+```
+
+This downloads Stimulus and OpenPGP.js into `assets/vendor/` and registers them in `importmap.php`.
+
+### 5. Generate the server PGP key pair
 
 The app requires a PGP key pair to sign outgoing messages. Run this once:
 
 ```bash
-docker exec php bash /var/www/app/scripts/init-pgp.sh
+docker compose exec php bash /var/www/app/scripts/init-pgp.sh --with-passphrase your-secure-passphrase
+```
+
+Or without a passphrase (for local dev only):
+
+```bash
+docker compose exec php bash /var/www/app/scripts/init-pgp.sh
 ```
 
 This generates `config/pgp/private.key` and `config/pgp/public.key` inside the container. These files are gitignored and never committed.
 
-### 5. Fix file permissions
+### 6. Fix file permissions
 
 The PHP-FPM process runs as `www-data`. After key generation (which runs as root), fix ownership:
 
 ```bash
-docker exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"
+docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"
 ```
 
-### 6. Verify
+> **Windows users:** If the above `chown` fails with a `cannot access` error, it's because `docker exec` resolves paths against the Windows filesystem. Always wrap `chown` paths in `bash -c "..."` as shown above.
 
-The app is available at **http://localhost**.
+### 7. Verify
+
+The app is available at **http://localhost:8080**.
 MailHog (inspect outgoing emails) is at **http://localhost:8025**.
 
 ```bash
 # Quick smoke test
-docker exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
 ```
 
 ---
@@ -129,8 +150,8 @@ Defined in `.env` (copy from `.env.example`):
 | `APP_ENV` | `dev` for local, `prod` for production |
 | `APP_SECRET` | Random secret used for token encryption — change this |
 | `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
-| `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `doctrine://default?auto_setup=0` |
-| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty |
+| `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `sync://` |
+| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. Required in production. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty for local dev |
 
 ---
 
@@ -138,15 +159,32 @@ Defined in `.env` (copy from `.env.example`):
 
 ```bash
 # Full test suite
-docker exec php php bin/phpunit --no-coverage
+docker compose exec php php bin/phpunit --no-coverage
 
 # Specific file
-docker exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
-docker exec php php bin/phpunit tests/Service/PgpSigningServiceTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/BootstrapTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/Service/PgpSigningServiceTest.php --no-coverage
 
-# With coverage report
-docker exec php php bin/phpunit --coverage-text
+# With coverage report (requires Xdebug — dev image only)
+docker compose exec php php bin/phpunit --coverage-text
+
+# Using docker compose run (fresh container, no service start required)
+docker compose run --rm --no-deps \
+  -e APP_ENV=test \
+  -e APP_SECRET=test-secret-32-chars-long!! \
+  -e PGP_PRIVATE_KEY_PASSPHRASE=your-secure-passphrase \
+  -e APP_MAIL_FROM=noreply@lockpost.local \
+  -e MAILER_DSN=smtp://mailhog:1025 \
+  -e GNUPGHOME=/var/www/app/config/pgp/key-config \
+  php php bin/phpunit --no-coverage
 ```
+
+For tests that require the GPG keyring (PgpSigningService, DefaultController):
+1. Generate PGP keys first (step 5 above)
+2. Ensure `GNUPGHOME=/var/www/app/config/pgp/key-config` is set in the container
+
+For tests that do NOT require GPG (TokenLinkService, PgpKeyService):
+- Use `docker compose run --rm --no-deps -e APP_ENV=test -e APP_SECRET=test-secret-32-chars-long!! php php bin/phpunit tests/Service/TokenLinkServiceTest.php --no-coverage`
 
 ---
 
@@ -154,16 +192,17 @@ docker exec php php bin/phpunit --coverage-text
 
 ```bash
 # Clear Symfony cache
-docker exec php php bin/console cache:clear
+docker compose exec php php bin/console cache:clear
 
 # Tail application logs
-docker exec php tail -f var/log/dev.log
+docker compose exec php tail -f var/log/dev.log
 
 # Reinstall JS importmap assets
-docker exec php php bin/console importmap:install
+docker compose exec php php bin/console importmap:require @hotwired/stimulus openpgp
+docker compose exec php php bin/console importmap:install
 
 # Stop all containers
-docker-compose down
+docker compose down
 ```
 
 ---

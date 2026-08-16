@@ -28,7 +28,7 @@ for dir in "${PGP_CONFIG_DIR}" "${KEY_CONFIG_DIR}"; do
         exit 1
     fi
 
-    dir_perms=$(stat -f "%OLp" "${dir}")
+    dir_perms=$(stat -c "%a" "${dir}")
     if [ "${dir_perms}" != "700" ]; then
         log "ERROR: Incorrect permissions on ${dir} (${dir_perms})"
         exit 1
@@ -48,7 +48,7 @@ for key_file in "${PRIVATE_KEY}" "${PUBLIC_KEY}"; do
         expected_perms="644"
     fi
 
-    key_perms=$(stat -f "%OLp" "${key_file}")
+    key_perms=$(stat -c "%a" "${key_file}")
     if [ "${key_perms}" != "${expected_perms}" ]; then
         log "ERROR: Incorrect permissions on ${key_file} (${key_perms})"
         exit 1
@@ -87,7 +87,7 @@ rm -f /tmp/test-message /tmp/test-message.gpg
 log "PGP environment validation completed successfully"
 
 # Check PHP GnuPG extension
-if ! docker exec -it php php -m | grep -q "gnupg"; then
+if ! docker exec php php -m | grep -q "gnupg"; then
     log "ERROR: PHP GnuPG extension is not installed"
     exit 1
 fi

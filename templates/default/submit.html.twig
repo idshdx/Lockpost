@@ -40,10 +40,12 @@
                   aria-labelledby="page-heading"
                   data-controller="submit"
                   data-action="submit->submit#submit"
+                  data-submit-token-value="{{ token }}"
                   data-submit-recipient-value="{{ email }}"
                   data-submit-public-key-value="{{ publicKey|e('html_attr') }}"
                   data-submit-submit-url-value="{{ path('app_submit_message') }}"
-                  data-submit-home-url-value="{{ path('app_home') }}">
+                  data-submit-home-url-value="{{ path('app_home') }}"
+                  data-submit-csrf-token-value="{{ csrf_token('submit_message') }}">
 
                 <div class="mb-3">
                     <label for="message" class="form-label">Your Message</label>
@@ -53,9 +55,9 @@
 
                 <div class="d-none" data-submit-target="feedback" role="alert"></div>
 
-                <div class="d-none" data-submit-target="loading">
+                <div class="d-none" data-submit-target="loading" aria-live="polite">
                     <div class="alert alert-warning">
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                         Encrypting and sending&hellip;
                     </div>
                 </div>

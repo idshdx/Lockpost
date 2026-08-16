@@ -11,7 +11,7 @@ Before starting, ensure the following are available on the VPS:
 - **Docker Engine 24+** — [installation guide](https://docs.docker.com/engine/install/ubuntu/)
 - **Docker Compose v2** — included with Docker Desktop; on a server install via `apt-get install docker-compose-plugin`
 - **Git**
-- **Port 80 open** — both in the OS firewall (iptables) and in Oracle Cloud's Security List (see Section 1)
+- **Port 80/443 open** — both in the OS firewall (ufw/iptables) and in Oracle Cloud's Security List (see Section 1)
 
 > **Oracle Cloud firewall:** Oracle Cloud VPS instances block inbound traffic by default at the cloud level. You must open port 80 in both iptables *and* the Oracle Cloud Security List. Both steps are covered in Section 1.
 
@@ -49,15 +49,14 @@ docker --version          # Docker version 24.x or later
 docker compose version    # Docker Compose version v2.x
 ```
 
-### 1.2 Open Port 80
+### 1.2 Open Port 80/443
 
-**Step A — iptables (OS-level):**
+**Step A — ufw (OS-level, Ubuntu recommended):**
 
 ```shell
-sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-# Persist the rule across reboots (Ubuntu/Debian):
-sudo apt-get install -y iptables-persistent
-sudo netfilter-persistent save
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+echo "y" | sudo ufw enable
 ```
 
 **Step B — Oracle Cloud Security List (cloud-level):**
@@ -69,10 +68,10 @@ sudo netfilter-persistent save
 5. Under **Ingress Rules**, click **Add Ingress Rules** and enter:
    - Source CIDR: `0.0.0.0/0`
    - IP Protocol: `TCP`
-   - Destination Port Range: `80`
+   - Destination Port Range: `80,443`
 6. Save.
 
-> Without both steps, HTTP requests from the internet will not reach the NGINX container.
+> Without both steps, HTTP/HTTPS requests from the internet will not reach the NGINX container.
 
 ### 1.3 Clone the Repository
 
@@ -83,19 +82,34 @@ cd /opt/lockpost
 
 Replace `<repo-url>` with the actual Git remote URL (e.g., `https://github.com/youruser/lockpost.git`).
 
+### 1.4 Optional — TLS with Let's Encrypt
+
+For production, serve over HTTPS. The simplest path is certbot + NGINX:
+
+```shell
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+This obtains a certificate and rewrites the NGINX config to redirect HTTP→HTTPS. Certificates auto-renew; verify with:
+
+```shell
+sudo certbot renew --dry-run
+```
+
 ---
 
 ## 2. Environment Configuration
 
-### 2.1 Create `.env.prod` from the Template
+### 2.1 Create `.env` from the Template
 
 ```shell
-cp .env.production.example .env.prod
+cp .env.production.example .env
 ```
 
 ### 2.2 Fill in Required Variables
 
-Open `.env.prod` in a text editor and set each value:
+Open `.env` in a text editor and set each value:
 
 **`APP_SECRET`** — generate a cryptographically random value:
 
@@ -103,7 +117,8 @@ Open `.env.prod` in a text editor and set each value:
 openssl rand -hex 32
 ```
 
-Paste the output as the value of `APP_SECRET` in `.env.prod`.
+-Paste the output as the value of `APP_SECRET` in `.env.prod`.
++Paste the output as the value of `APP_SECRET` in `.env`.
 
 **`APP_MAIL_FROM`** — set to a real sender address at your domain:
 
@@ -111,10 +126,10 @@ Paste the output as the value of `APP_SECRET` in `.env.prod`.
 APP_MAIL_FROM=noreply@yourdomain.com
 ```
 
-**`PGP_PRIVATE_KEY_PASSPHRASE`** — leave blank if the PGP key was generated with the default `%no-protection` flag (the default behaviour of `scripts/init-pgp.sh`):
+**`PGP_PRIVATE_KEY_PASSPHRASE`** — in production, use a strong passphrase and store it in a secrets manager or mounted secret file rather than plain env. The legacy `%no-protection` path is acceptable only for local/dev:
 
 ```
-PGP_PRIVATE_KEY_PASSPHRASE=
+PGP_PRIVATE_KEY_PASSPHRASE=REPLACE_IN_PROD
 ```
 
 **`MAILER_DSN`** — with `network_mode: host`, the PHP container shares the VPS host network, so Postfix is reachable at `127.0.0.1`:
@@ -131,7 +146,7 @@ MAILER_DSN=smtp://127.0.0.1:25
 
 ---
 
-> **⚠ Security warning:** `.env.prod` contains `APP_SECRET` and other sensitive values. It **must never be committed to the repository**. The file is listed in `.gitignore` — verify this before any `git add` operation. Always create `.env.prod` manually on the VPS from the `.env.production.example` template.
+> **⚠ Security warning:** `.env` contains `APP_SECRET` and other sensitive values. It **must never be committed to the repository**. The file is listed in `.gitignore` — verify this before any `git add` operation. Always create `.env` manually on the VPS from the `.env.production.example` template.
 
 ---
 
@@ -236,6 +251,12 @@ docker exec php bash -c "chmod 600 /var/www/app/config/pgp/private.key"
 docker exec php bash -c "chmod 644 /var/www/app/config/pgp/public.key"
 ```
 
+> **AppArmor note:** On Ubuntu, Docker's default AppArmor profile can restrict bind-mounted files. If you see permission errors on `config/pgp/`, try adding `:Z` to the volume mount in `docker-compose.prod.yml`:
+> ```yaml
+> volumes:
+>   - ./config/pgp:/var/www/app/config/pgp:Z
+> ```
+
 ### 4.5 Run the Validation Script
 
 ```shell
@@ -275,8 +296,8 @@ Both the `nginx` and `php` containers will start with `restart: unless-stopped`,
 After the containers are running, pre-compile the Symfony DI container and route cache so the first requests are served from the optimised cache:
 
 ```shell
-docker exec php php bin/console cache:clear --env=prod --no-debug
-docker exec php php bin/console cache:warmup --env=prod --no-debug
+docker exec php php bin/console cache:clear --no-debug
+docker exec php php bin/console cache:warmup --no-debug
 docker exec php php bin/console asset-map:compile
 docker exec php chown -R www-data:www-data /var/www/app/var/
 ```
@@ -363,8 +384,8 @@ Docker Compose will recreate only the containers whose image or configuration ch
 Repeat the cache warmup from Section 6:
 
 ```shell
-docker exec php php bin/console cache:clear --env=prod --no-debug
-docker exec php php bin/console cache:warmup --env=prod --no-debug
+docker exec php php bin/console cache:clear --no-debug
+docker exec php php bin/console cache:warmup --no-debug
 docker exec php php bin/console asset-map:compile
 docker exec php chown -R www-data:www-data /var/www/app/var/
 ```

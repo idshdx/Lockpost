@@ -1,0 +1,143 @@
+<?php
+
+namespace App\Tests\Service;
+
+use App\Exception\AppException;
+use App\Service\TokenLinkService;
+use PHPUnit\Framework\TestCase;
+
+class TokenLinkServiceTest extends TestCase
+{
+    private TokenLinkService $tokenLinkService;
+    private string $appSecret = 'test-app-secret-32-characters-long!!';
+
+    protected function setUp(): void
+    {
+        $this->tokenLinkService = new TokenLinkService($this->appSecret);
+    }
+
+    public function testGenerateAndValidateRoundtrip(): void
+    {
+        $email = 'user@example.com';
+        $token = $this->tokenLinkService->generateLink($email);
+        $this->assertNotEmpty($token);
+
+        $validatedEmail = $this->tokenLinkService->validateLink($token);
+        $this->assertSame($email, $validatedEmail);
+    }
+
+    public function testValidateLinkIsCaseInsensitiveAndTrimsWhitespace(): void
+    {
+        $email = 'User@Example.COM';
+        $token = $this->tokenLinkService->generateLink($email);
+
+        $validatedEmail = $this->tokenLinkService->validateLink($token);
+        $this->assertSame(strtolower(trim($email)), $validatedEmail);
+    }
+
+    public function testValidateLinkWithLeadingTrailingWhitespaceInEmail(): void
+    {
+        $email = '  user@example.com  ';
+        $token = $this->tokenLinkService->generateLink($email);
+
+        $validatedEmail = $this->tokenLinkService->validateLink($token);
+        $this->assertSame('user@example.com', $validatedEmail);
+    }
+
+    public function testValidateLinkThrowsOnTamperedToken(): void
+    {
+        $token = $this->tokenLinkService->generateLink('user@example.com');
+
+        // Decode, flip one bit in the HMAC portion, re-encode
+        $decoded = base64_decode(strtr($token, '-_', '+/'));
+
+        // Flip a bit in the HMAC (first 32 bytes)
+        $tampered = substr($decoded, 0, 32) ^ "\x01";
+        $tampered = $tampered . substr($decoded, 32);
+
+        $tamperedToken = rtrim(strtr(base64_encode($tampered), '+/', '-_'), '=');
+
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('tampered');
+
+        $this->tokenLinkService->validateLink($tamperedToken);
+    }
+
+    public function testValidateLinkThrowsOnExpiredToken(): void
+    {
+        // Generate a token with expiration in the past
+        $token = $this->generateExpiredToken('user@example.com', time() - 1);
+
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('expired');
+
+        $this->tokenLinkService->validateLink($token);
+    }
+
+    public function testValidateLinkThrowsOnGarbageToken(): void
+    {
+        $this->expectException(AppException::class);
+
+        $this->tokenLinkService->validateLink('!!!not-base64-at-all!!!');
+    }
+
+    public function testValidateLinkThrowsOnShortToken(): void
+    {
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('Invalid');
+
+        $this->tokenLinkService->validateLink('short');
+    }
+
+    public function testGenerateLinkProducesDifferentTokensOnEachCall(): void
+    {
+        $token1 = $this->tokenLinkService->generateLink('user@example.com');
+        $token2 = $this->tokenLinkService->generateLink('user@example.com');
+
+        // Tokens should differ because IVs and nonces are random
+        $this->assertNotEquals($token1, $token2);
+    }
+
+    public function testValidateLinkThrowsOnEmptyToken(): void
+    {
+        $this->expectException(AppException::class);
+
+        $this->tokenLinkService->validateLink('');
+    }
+
+    /**
+     * Generates an expired token by directly using the service's internal
+     * encryption logic with a past expiration timestamp.
+     */
+    private function generateExpiredToken(string $email, int $expiry): string
+    {
+        $service = new TokenLinkService($this->appSecret);
+
+        // Manually construct an expired token using the same logic as generateLink
+        $data = json_encode([
+            'email' => strtolower(trim($email)),
+            'exp'   => $expiry,
+            'nonce' => bin2hex(random_bytes(8)),
+        ], JSON_THROW_ON_ERROR);
+
+        $cipher = 'aes-256-cbc';
+        $ivlen = openssl_cipher_iv_length($cipher);
+        $iv = random_bytes($ivlen);
+
+        // Access deriveKey via reflection — intentionally accessing a private method.
+        // This is a test-only scenario; production code never needs this.
+        $reflection = new \ReflectionClass($service);
+        $deriveKey = $reflection->getMethod('deriveKey');
+        $deriveKey->setAccessible(true);
+
+        $encKey = $deriveKey->invoke($service, 'lockpost-token-enc');
+        $encrypted = openssl_encrypt($data, $cipher, $encKey, OPENSSL_RAW_DATA, $iv);
+
+        $payload = $iv . $encrypted;
+
+        $hmacKey = $deriveKey->invoke($service, 'lockpost-token-auth');
+        $hmac = hash_hmac('sha256', $payload, $hmacKey, true);
+
+        return rtrim(strtr(base64_encode($hmac . $payload), '+/', '-_'), '=');
+    }
+}

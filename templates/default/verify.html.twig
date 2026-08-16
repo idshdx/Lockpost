@@ -19,11 +19,11 @@
                 <p class="mt-2 mb-1">
                     Use this page to verify any PGP-signed message against a public key.
                     When someone sends you a message through Lockpost, the server signs the encrypted message with its private key before emailing it to you.
-                    Pasting the signed message and the server's public key here lets you confirm the message was genuinely forwarded by this server and was not tampered with in transit.
+                    Pasting the signed message block and the server's public key here lets you confirm the message was genuinely forwarded by this server and was not tampered with in transit.
                 </p>
                 <p class="mb-1"><strong>Verification happens entirely in your browser</strong> — no data is sent to the server.</p>
                 <ol class="mb-0">
-                    <li>Paste any <strong>PGP-signed message</strong> (starts with <code>-----BEGIN PGP SIGNED MESSAGE-----</code>) into the first field.</li>
+                    <li>Paste the full <strong>Server-Signed Message</strong> block from your email (starts with <code>-----BEGIN PGP SIGNED MESSAGE-----</code>) into the first field.</li>
                     <li>Paste the corresponding <strong>public key</strong> into the second field. The server's key is pre-filled — replace it with any other key if needed.</li>
                     <li>Click <strong>Verify</strong>.</li>
                 </ol>
@@ -39,12 +39,14 @@
             <div class="mb-3">
                 <label for="signed-message" class="form-label fw-semibold">
                     Signed Message
-                    <small class="text-body-secondary fw-normal">— paste a <code>-----BEGIN PGP SIGNED MESSAGE-----</code> block</small>
+                    <small class="text-body-secondary fw-normal">— paste the full <code>-----BEGIN PGP SIGNED MESSAGE-----</code> block</small>
                 </label>
                 <textarea class="form-control font-monospace"
-                          id="signed-message" rows="8"
-                          placeholder="-----BEGIN PGP SIGNED MESSAGE-----&#10;..."
-                          data-verify-target="signedMessage"></textarea>
+                          id="signed-message"
+                          name="verify_signature_form[signed_message]"
+                          rows="10"
+                          placeholder="-----BEGIN PGP SIGNED MESSAGE-----&#10;Hash: SHA512&#10;&#10;...signed content...&#10;&#10;-----BEGIN PGP SIGNATURE-----&#10;...&#10;-----END PGP SIGNATURE-----\"
+                          data-verify-target=\"signedMessage\"></textarea>
             </div>
 
             <div class="mb-3">
@@ -53,15 +55,17 @@
                     <small class="text-body-secondary fw-normal">— or replace with any key</small>
                 </label>
                 <textarea class="form-control font-monospace"
-                          id="public-key" rows="6"
-                          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;..."
+                          id="public-key"
+                          name="verify_signature_form[public_key]"
+                          rows="6"
+                          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;...\"
                           data-verify-target="publicKey">{{ serverPublicKey }}</textarea>
             </div>
 
             <div class="d-none mb-3" data-verify-target="result" role="alert"></div>
 
-            <div class="d-none mb-3" data-verify-target="loading">
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <div class="d-none mb-3" data-verify-target="loading" aria-live="polite">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                 Verifying signature…
             </div>
 
@@ -72,7 +76,7 @@
                 <div data-controller="clipboard"
                      data-clipboard-success-label-value="Copied!"
                      data-clipboard-original-label-value="Copy Server Key">
-                    <textarea class="d-none" data-clipboard-target="source">{{ serverPublicKey }}</textarea>
+                    <textarea class="d-none" id="clipboard-source" aria-hidden="true" data-clipboard-target="source">{{ serverPublicKey }}</textarea>
                     <button type="button" class="btn btn-outline-secondary" data-action="clipboard#copy">
                         <i class="bi bi-clipboard me-1" aria-hidden="true"></i>
                         <span data-clipboard-target="label">Copy Server Key</span>

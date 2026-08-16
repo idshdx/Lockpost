@@ -6,13 +6,16 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class DefaultControllerTest extends WebTestCase
 {
+    private const VERIFY_ROUTE = '/verify';
+    private const EMAIL_FORM_SELECTOR = 'form[name="email_form"]';
+
     public function testIndexPage(): void
     {
         $client = static::createClient();
         $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="email_form"]');
+        self::assertSelectorExists(self::EMAIL_FORM_SELECTOR);
     }
 
     public function testFlashMessageRendersOutsideBodyBlock(): void
@@ -20,20 +23,20 @@ class DefaultControllerTest extends WebTestCase
         $client = static::createClient();
         $crawler = $client->request('GET', '/');
 
-        $form = $crawler->filter('form[name="email_form"]')->form([
+        $form = $crawler->filter(self::EMAIL_FORM_SELECTOR)->form([
             'email_form[email]' => 'invalid-email',
         ]);
 
-        $crawler = $client->submit($form);
+        $client->submit($form);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="email_form"]');
+        self::assertSelectorExists(self::EMAIL_FORM_SELECTOR);
     }
 
     public function testVerifyPage(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/verify');
+        $client->request('GET', self::VERIFY_ROUTE);
 
         self::assertResponseIsSuccessful();
         // The verify page now uses a plain HTML form wired to the Stimulus verify controller
@@ -55,7 +58,7 @@ class DefaultControllerTest extends WebTestCase
         ]);
 
         // Invalid CSRF → form not submitted → flash added → redirect to /verify
-        self::assertResponseRedirects('/verify');
+        self::assertResponseRedirects(self::VERIFY_ROUTE);
         $client->followRedirect();
         self::assertRouteSame('app_verify');
     }
@@ -75,12 +78,13 @@ class DefaultControllerTest extends WebTestCase
         ]);
 
         // Invalid CSRF → flash added → redirect to /verify
-        self::assertResponseRedirects('/verify');
-        $crawler = $client->followRedirect();
+        self::assertResponseRedirects(self::VERIFY_ROUTE);
+        $client->followRedirect();
+
         self::assertResponseIsSuccessful();
 
         // Assert that a flash/alert message is displayed
-        $this->assertGreaterThan(0, $crawler->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
+        self::assertGreaterThan(0, $client->getCrawler()->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
     }
 
     /**
@@ -96,10 +100,10 @@ class DefaultControllerTest extends WebTestCase
      */
     public function testAppMailFromParameterResolvesFromEnv(): void
     {
-        $client = static::createClient();
         $container = static::getContainer();
 
-        // .env.test defines APP_MAIL_FROM=noreply@example.com
+        // In the test container the resolved sender should come from the
+        // active APP_MAIL_FROM environment value.
         $mailFrom = $container->getParameter('app.mail_from');
 
         self::assertSame('noreply@example.com', $mailFrom);
