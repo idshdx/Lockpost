@@ -1,0 +1,42 @@
+Lockpost — Secure PGP Message
+================================
+Share a link. Receive a secret. Leave no trace.
+
+How to decrypt and verify this message:
+
+1. Decrypt: Copy the "1. Encrypted Message" block below and decrypt it
+   with your PGP private key (using GnuPG, Kleopatra, Mailvelope, etc.).
+
+2. Verify: Paste the "2. Server-Signed Message" block into the
+   Lockpost Verify Page to confirm the authenticity of the message:
+   {{ app_verify_url }}
+
+Verification happens entirely client-side — zero persistent server storage.
+
+
+--- 1. Encrypted Message (For Your Private Key) ---
+
+The raw PGP ciphertext encrypted with your public key:
+
+{{ message }}
+
+
+--- 2. Server-Signed Message Block (For Signature Verification) ---
+
+Signed by the Lockpost server private key before sending. Paste this block
+into the Lockpost Verify Page to confirm authenticity:
+{{ app_verify_url }}
+
+{{ message_signature }}
+
+
+--- 3. Server Public Key ---
+
+Used to verify signatures originating from this Lockpost server:
+
+{{ server_public_key }}
+
+
+---
+Lockpost • Zero storage • Client-side encrypted
+Verify online: {{ app_verify_url }}

@@ -267,16 +267,18 @@ class DefaultController extends AbstractController
     private function sendEncryptedMessageEmail(MessageSubmitRequest $dto, string $recipientEmail): void
     {
         $signedMessage = $this->pgpSigningService->signMessage($dto->getEncryptedMessage());
+        $templateContext = [
+            'message' => $dto->getEncryptedMessage(),
+            'message_signature' => $signedMessage,
+            'server_public_key' => $this->pgpSigningService->getServerPublicKey(),
+            'app_verify_url' => $this->generateUrl('app_verify', [], UrlGeneratorInterface::ABSOLUTE_URL),
+        ];
         $email = (new Email())
             ->from($this->getParameter('app.mail_from'))
             ->to($recipientEmail)
             ->subject('New PGP Encrypted Message via Lockpost')
-            ->html($this->renderView('email/message.html.twig', [
-                'message' => $dto->getEncryptedMessage(),
-                'message_signature' => $signedMessage,
-                'server_public_key' => $this->pgpSigningService->getServerPublicKey(),
-                'app_verify_url' => $this->generateUrl('app_verify', [], UrlGeneratorInterface::ABSOLUTE_URL),
-            ]));
+            ->html($this->renderView('email/message.html.twig', $templateContext))
+            ->text($this->renderView('email/message.txt.twig', $templateContext));
 
         $this->mailer->send($email);
     }

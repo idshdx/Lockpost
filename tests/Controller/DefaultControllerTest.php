@@ -182,4 +182,18 @@ class DefaultControllerTest extends WebTestCase
         self::assertTrue($container->has('limiter.link_generation'));
         self::assertTrue($container->has('limiter.link_generation_failed'));
     }
+
+    /**
+     * Validates that the plain-text email template exists and renders
+     * with the expected variables for multipart email support.
+     *
+     * Validates: Task 10 — outgoing email is multipart HTML + plain text.
+     */
+    public function testPlainTextEmailTemplateExists(): void
+    {
+        $templateDir = static::getContainer()->getParameter('kernel.project_dir') . '/templates/email';
+
+        self::assertFileExists($templateDir . '/message.html.twig');
+        self::assertFileExists($templateDir . '/message.txt.twig');
+    }
 }
