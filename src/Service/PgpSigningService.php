@@ -18,6 +18,10 @@ class PgpSigningService
      * Cached, pre-initialized GnuPG instance for signing operations.
      * Imported and sign-key set once in the constructor to avoid
      * re-importing the private key on every sign() call.
+     *
+     * The signing homedir is set via a save/restore putenv pattern in
+     * buildSigningGpg() so that the signing keyring path is isolated
+     * to the signing gnupg context, not leaked to other operations.
      */
     private readonly gnupg $gpgSigner;
 
@@ -56,10 +60,6 @@ class PgpSigningService
         // host-level bind-mount mistakes, bad umasks, or manual overrides.
         $this->validateKeyFilePermissions();
 
-        // Set GNUPGHOME once for this process worker — signing always uses the
-        // server keyring. verifySignature() overrides this with a temp dir per call.
-        putenv("GNUPGHOME={$this->keyConfigPath}");
-
         try {
             $this->gpgSigner = $this->buildSigningGpg();
         } catch (Exception $e) {
@@ -70,32 +70,52 @@ class PgpSigningService
 
     /**
      * Build and return an initialized gnupg instance with the signing key loaded.
+     *
+     * Uses a save/restore putenv pattern: saves the current GNUPGHOME, sets it
+     * to the signing keyring path for the import, then restores the original
+     * value. This ensures the signing keyring path does not leak as a
+     * process-global mutation visible to other code or concurrent requests.
+     *
      * Called once from the constructor and cached in $gpgSigner.
      *
      * @throws AppException
      */
     private function buildSigningGpg(): gnupg
     {
-        $gpg = new gnupg();
-        $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
+        // Save the current GNUPGHOME so we can restore it after construction.
+        $originalGpgHome = getenv('GNUPGHOME');
 
-        $privateKeyData = file_get_contents($this->privateKeyPath);
-        if ($privateKeyData === false) {
-            throw new AppException('Private key not found');
-        }
-
-        $privateKeyInfo = $gpg->import($privateKeyData);
-        if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
-            throw new AppException('Private key mismatch');
-        }
+        // Set GNUPGHOME to the signing keyring path for key import.
+        // The gnupg extension reads GNUPGHOME at each operation, so we must
+        // set it before import and restore it immediately after.
+        $this->setGpgHome($this->keyConfigPath);
 
         try {
-            $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
-        } catch (Exception $e) {
-            throw new AppException('Invalid passphrase', 0, $e);
-        }
+            $gpg = new gnupg();
+            $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
-        return $gpg;
+            $privateKeyData = file_get_contents($this->privateKeyPath);
+            if ($privateKeyData === false) {
+                throw new AppException('Private key not found');
+            }
+
+            $privateKeyInfo = $gpg->import($privateKeyData);
+            if (empty($privateKeyInfo) || !isset($privateKeyInfo['fingerprint'])) {
+                throw new AppException('Private key mismatch');
+            }
+
+            try {
+                $gpg->addsignkey($privateKeyInfo['fingerprint'], $this->passphrase);
+            } catch (Exception $e) {
+                throw new AppException('Invalid passphrase', 0, $e);
+            }
+
+            return $gpg;
+        } finally {
+            // Restore the original GNUPGHOME so the signing keyring path
+            // does not persist as a process-global mutation.
+            $this->restoreGpgHome($originalGpgHome);
+        }
     }
 
     /**
@@ -104,14 +124,20 @@ class PgpSigningService
      * Returns a combined cleartext-signed PGP block
      * (-----BEGIN PGP SIGNED MESSAGE----- … -----END PGP SIGNATURE-----).
      *
+     * Uses a save/restore putenv pattern: the cached $gpgSigner was
+     * constructed with the signing keyring, so we set GNUPGHOME for the
+     * sign() call and immediately restore it.
+     *
      * @param string $message The plaintext message to sign.
      * @return string The combined PGP cleartext-signed block.
      * @throws AppException If signing fails.
      */
     public function signMessage(string $message): string
     {
+        $originalGpgHome = getenv('GNUPGHOME');
+
         try {
-            putenv("GNUPGHOME={$this->keyConfigPath}");
+            $this->setGpgHome($this->keyConfigPath);
             $signature = $this->gpgSigner->sign($message);
             if ($signature === false) {
                 throw new AppException('Invalid signature error');
@@ -121,6 +147,8 @@ class PgpSigningService
             throw $e;
         } catch (Exception $e) {
             throw new AppException('Unexpected error during signing', 0, $e);
+        } finally {
+            $this->restoreGpgHome($originalGpgHome);
         }
     }
 
@@ -129,7 +157,8 @@ class PgpSigningService
      *
      * Each call creates an isolated temporary GnuPG home directory so that
      * untrusted user-supplied public keys never pollute the server's signing
-     * keyring, and there is no process-global putenv() race between workers.
+     * keyring. Uses a save/restore putenv pattern: saves GNUPGHOME, sets it
+     * to the temp dir for the verification, then restores it.
      *
      * Verification is performed via the gpg binary with --status-fd 1 for
      * machine-parseable output, which is more reliable than the PHP gnupg
@@ -154,13 +183,18 @@ class PgpSigningService
     public function verifySignature(string $signedMessage, string $publicKey): bool
     {
         // Create an isolated temporary keyring for this verification call.
-        $tmpHome = rtrim(sys_get_temp_dir(), '/\\\\') . '/gpg_' . bin2hex(random_bytes(8));
+        $tmpHome = rtrim(sys_get_temp_dir(), '/\\') . '/gpg_' . bin2hex(random_bytes(8));
         if (!mkdir($tmpHome, 0700, true) && !is_dir($tmpHome)) {
             throw new AppException('Failed to create temporary GPG home directory');
         }
 
+        // Save the current GNUPGHOME so we can restore it after verification.
+        $originalGpgHome = getenv('GNUPGHOME');
+
         try {
-            putenv("GNUPGHOME={$tmpHome}");
+            // Set GNUPGHOME to the temp dir so the gnupg extension's import()
+            // uses this isolated keyring, not the server's signing keyring.
+            $this->setGpgHome($tmpHome);
 
             // Write the signed message to a temporary file for gpg --verify.
             $msgFile = $tmpHome . '/signed-message.asc';
@@ -169,14 +203,8 @@ class PgpSigningService
                 throw new AppException('Failed to write signed message for verification');
             }
 
-            // Write the public key to a file for gpg --import.
-            $keyFile = $tmpHome . '/pubkey.asc';
-            $bytesWritten = file_put_contents($keyFile, $publicKey);
-            if ($bytesWritten === false) {
-                throw new AppException('Failed to write public key for verification');
-            }
-
             // Import the public key to get its primary fingerprint.
+            // Uses the gnupg extension with the temp homedir set via GNUPGHOME.
             $gpg = new gnupg();
             $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
@@ -188,9 +216,12 @@ class PgpSigningService
             $primaryFingerprint = $keyInfo['fingerprint'];
 
             // Assign ultimate ownertrust so GPG validates the signature.
-            $this->setOwnertrust($tmpHome, $primaryFingerprint, $gpg);
+            // Uses --homedir to explicitly target the temp dir.
+            $this->setOwnertrust($tmpHome, $primaryFingerprint);
 
             // Run gpg --verify with --status-fd 1 for machine-parseable output.
+            // All gpg CLI calls use --homedir to explicitly target the temp dir,
+            // so they don't depend on the GNUPGHOME env var.
             $cmd = 'gpg --homedir ' . escapeshellarg($tmpHome)
                 . ' --status-fd 1 --verify ' . escapeshellarg($msgFile) . ' 2>&1';
             exec($cmd, $statusLines, $returnVar);
@@ -201,8 +232,9 @@ class PgpSigningService
         } catch (Exception $e) {
             throw new AppException('Unexpected error during signature verification', 0, $e);
         } finally {
-            // Restore GNUPGHOME to the signing keyring and clean up the temp dir.
-            putenv("GNUPGHOME={$this->keyConfigPath}");
+            // Restore the original GNUPGHOME so the temp keyring path
+            // does not persist as a process-global mutation.
+            $this->restoreGpgHome($originalGpgHome);
             $this->removeTempDir($tmpHome);
         }
     }
@@ -210,17 +242,19 @@ class PgpSigningService
     /**
      * Assign ultimate ownertrust to a key so GPG validates signatures against it.
      *
+     * Uses --homedir to explicitly target the temp GnuPG home, avoiding
+     * reliance on the process-global GNUPGHOME env var.
+     *
      * @param string $gpgHome     Path to the temporary GnuPG home.
      * @param string $fingerprint The primary key fingerprint to trust.
-     * @param gnupg|null $gpg     Optional gnupg instance (unused, kept for API compat).
      */
-    private function setOwnertrust(string $gpgHome, string $fingerprint, ?gnupg $gpg = null): void
+    private function setOwnertrust(string $gpgHome, string $fingerprint): void
     {
         $trustFile = $gpgHome . '/.ownertrust';
         $content = $fingerprint . ':6:' . "\n";
         file_put_contents($trustFile, $content);
 
-        // Use gpg CLI to import ownertrust (the PHP extension does not expose this).
+        // Use gpg CLI with --homedir to import ownertrust.
         exec(
             'gpg --homedir ' . escapeshellarg($gpgHome) . ' --import-ownertrust 2>&1',
             $output,
@@ -330,6 +364,33 @@ class PgpSigningService
             throw $e;
         } catch (Exception $e) {
             throw new AppException('Failed to read server public key', 0, $e);
+        }
+    }
+
+    /**
+     * Set the GNUPGHOME environment variable to the specified path.
+     * Used with save/restore pattern to avoid permanent process-global mutation.
+     *
+     * @param string $homePath The new GNUPGHOME value.
+     */
+    private function setGpgHome(string $homePath): void
+    {
+        putenv("GNUPGHOME={$homePath}");
+    }
+
+    /**
+     * Restore the GNUPGHOME environment variable to its original value.
+     * If the original was unset, clears the variable entirely.
+     *
+     * @param string|false $originalValue The value returned by getenv('GNUPGHOME')
+     *                                    before modification, or false if it was unset.
+     */
+    private function restoreGpgHome(string|false $originalValue): void
+    {
+        if ($originalValue === false) {
+            putenv('GNUPGHOME');
+        } else {
+            putenv("GNUPGHOME={$originalValue}");
         }
     }
 
