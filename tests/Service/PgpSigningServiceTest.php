@@ -65,7 +65,6 @@ class PgpSigningServiceTest extends TestCase
         $publicKey = file_get_contents($this->testPgpDir . '/public.key');
 
         $isVerified = $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
-
         $this->assertTrue($isVerified, 'Sign then verify with own key must return true');
     }
 
@@ -82,9 +81,9 @@ Invalid Signature Data Here
 -----END PGP SIGNATURE-----';
         $publicKey = file_get_contents($this->testPgpDir . '/public.key');
 
-        $this->expectException(AppException::class);
-
-        $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
+        // Invalid/malformed signatures should return false (not throw).
+        $isVerified = $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
+        $this->assertFalse($isVerified, 'Malformed signature data must return false');
     }
 
     public function testInvalidKey(): void
@@ -165,6 +164,145 @@ Invalid Key
         $this->assertNotEmpty($publicKey);
         $this->assertStringContainsString('-----BEGIN PGP PUBLIC KEY BLOCK-----', $publicKey);
         $this->assertStringContainsString('-----END PGP PUBLIC KEY BLOCK-----', $publicKey);
+    }
+
+    /**
+     * Regression test: A validly signed message must verify as true.
+     * This confirms the fix does not break legitimate sign→verify workflows.
+     */
+    public function testValidSignatureReturnsTrue(): void
+    {
+        $message = 'A message that should verify correctly';
+        $signedBlock = $this->pgpSigningService->signMessage($message);
+        $publicKey = file_get_contents($this->testPgpDir . '/public.key');
+
+        $result = $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
+        $this->assertTrue($result);
+    }
+
+    /**
+     * Regression test: A tampered signed message (content modified after signing)
+     * must return false — the signature no longer matches the message.
+     */
+    public function testTamperedSignatureReturnsFalse(): void
+    {
+        $message = 'Original message content';
+        $signedBlock = $this->pgpSigningService->signMessage($message);
+
+        // Tamper with the message content inside the signed block.
+        $tamperedBlock = str_replace('Original message content', 'Tampered malicious content', $signedBlock);
+        $publicKey = file_get_contents($this->testPgpDir . '/public.key');
+
+        $result = $this->pgpSigningService->verifySignature($tamperedBlock, $publicKey);
+        $this->assertFalse($result, 'Tampered signature must return false');
+    }
+
+    /**
+     * Regression test: A signature from a different key (not the imported key)
+     * must return false — fingerprint mismatch is detected.
+     */
+    public function testSignatureFromDifferentKeyReturnsFalse(): void
+    {
+        // Generate a second PGP key pair in the test keyring.
+        $differentKeyGpgHome = $this->testPgpDir . '/different-key-home';
+        mkdir($differentKeyGpgHome, 0700, true);
+
+        // Generate a different key
+        $batchFile = $differentKeyGpgHome . '/batch.conf';
+        file_put_contents($batchFile, "Key-Type: RSA\nKey-Length: 2048\nName-Real: Different Signer\nName-Email: different@test.example\nExpire-Date: 0\n%no-protection\n%commit\n");
+
+        exec(
+            'gpg --homedir ' . escapeshellarg($differentKeyGpgHome)
+            . ' --batch --import-ownertrust 2>&1',
+            $importOutput,
+            $importRet
+        );
+
+        exec(
+            'gpg --homedir ' . escapeshellarg($differentKeyGpgHome)
+            . ' --batch --generate-key ' . escapeshellarg($batchFile) . ' 2>&1',
+            $genOutput,
+            $genRet
+        );
+
+        // Export the different key's public key
+        $pubKeyFile = $this->testPgpDir . '/different-public.key';
+        exec(
+            'gpg --homedir ' . escapeshellarg($differentKeyGpgHome)
+            . ' --armor --export different@test.example > ' . escapeshellarg($pubKeyFile),
+            $exportOutput,
+            $exportRet
+        );
+        $this->assertFileExists($pubKeyFile, 'Different key public key should be exported');
+
+        // Sign a message with the different key
+        $message = 'Message signed with a different key';
+        $messageFile = $this->testPgpDir . '/message-to-sign.txt';
+        file_put_contents($messageFile, $message);
+        $signedWithDifferentKey = null;
+        exec(
+            'gpg --homedir ' . escapeshellarg($differentKeyGpgHome)
+            . ' --batch --yes --local-user different@test.example --clearsign'
+            . ' -o - < ' . escapeshellarg($messageFile) . ' 2>/dev/null',
+            $signOutput,
+            $signRet
+        );
+        $signedWithDifferentKey = implode("\n", $signOutput);
+        $this->assertNotEmpty($signedWithDifferentKey, 'Should produce a signed block');
+
+        // The original public key is what we pass to verifySignature.
+        // The signature was made by a different key, so verification must fail.
+        $originalPublicKey = file_get_contents($this->testPgpDir . '/public.key');
+        $result = $this->pgpSigningService->verifySignature($signedWithDifferentKey, $originalPublicKey);
+
+        $this->assertFalse($result, 'Signature from a different key must return false');
+    }
+
+    /**
+     * Regression test: Malformed signed message input (no PGP structure)
+     * should not cause an unhandled exception and must return false.
+     */
+    public function testMalformedSignedMessageReturnsFalse(): void
+    {
+        $publicKey = file_get_contents($this->testPgpDir . '/public.key');
+
+        $malformedInputs = [
+            'This is not a PGP signed message at all',
+            '',
+            '-----BEGIN PGP SIGNED MESSAGE-----',
+            'Random text without any PGP structure',
+        ];
+
+        foreach ($malformedInputs as $input) {
+            $result = $this->pgpSigningService->verifySignature($input, $publicKey);
+            $this->assertFalse($result, "Malformed input must return false: " . substr($input, 0, 30));
+        }
+    }
+
+    /**
+     * Regression test: Invalid public key input should throw AppException.
+     */
+    public function testInvalidPublicKeyInputThrowsAppException(): void
+    {
+        $signedBlock = $this->pgpSigningService->signMessage('test message');
+
+        $invalidKeys = [
+            '-----BEGIN PGP PUBLIC KEY BLOCK-----\nInvalid Key\n-----END PGP PUBLIC KEY BLOCK-----',
+            'not a key at all',
+            '',
+            '-----BEGIN PGP PUBLIC KEY BLOCK-----\nMissing end marker',
+        ];
+
+        foreach ($invalidKeys as $key) {
+            $this->expectException(AppException::class);
+            $this->expectExceptionMessage('Invalid public key format');
+            try {
+                $this->pgpSigningService->verifySignature($signedBlock, $key);
+            } catch (AppException $e) {
+                $this->assertStringContainsString('Invalid public key format', $e->getMessage());
+                throw $e;
+            }
+        }
     }
 
     /**

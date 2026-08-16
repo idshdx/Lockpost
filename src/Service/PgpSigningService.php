@@ -131,20 +131,52 @@ class PgpSigningService
      * untrusted user-supplied public keys never pollute the server's signing
      * keyring, and there is no process-global putenv() race between workers.
      *
+     * Verification is performed via the gpg binary with --status-fd 1 for
+     * machine-parseable output, which is more reliable than the PHP gnupg
+     * extension's summary field for trust-level decisions.
+     *
+     * Verification rules:
+     * - The public key must import successfully.
+     * - The key is assigned ultimate ownertrust in the temp home so GPG
+     *   actually validates the signature rather than reporting it as untrusted.
+     * - The status output must contain GOODSIG and VALIDSIG lines,
+     *   confirming a cryptographically valid signature.
+     * - No BADSIG, EXPKEYSIG, REVKEYSIG, or ERRSIG lines may be present.
+     * - The VALIDSIG line's primary key fingerprint must match the
+     *   imported key's primary fingerprint.
+     *
      * @param string $signedMessage The combined -----BEGIN PGP SIGNED MESSAGE----- block.
      * @param string $publicKey     The armored public key to verify against.
      *
-     * @return bool True if the signature is valid, false otherwise.
+     * @return bool True if the signature is valid and from the expected key.
      * @throws AppException If an unexpected error occurs during verification.
      */
     public function verifySignature(string $signedMessage, string $publicKey): bool
     {
         // Create an isolated temporary keyring for this verification call.
-        $tmpHome = rtrim(sys_get_temp_dir(), '/\\') . '/gpg_' . bin2hex(random_bytes(8));
-        mkdir($tmpHome, 0700, true);
+        $tmpHome = rtrim(sys_get_temp_dir(), '/\\\\') . '/gpg_' . bin2hex(random_bytes(8));
+        if (!mkdir($tmpHome, 0700, true) && !is_dir($tmpHome)) {
+            throw new AppException('Failed to create temporary GPG home directory');
+        }
 
         try {
             putenv("GNUPGHOME={$tmpHome}");
+
+            // Write the signed message to a temporary file for gpg --verify.
+            $msgFile = $tmpHome . '/signed-message.asc';
+            $bytesWritten = file_put_contents($msgFile, $signedMessage);
+            if ($bytesWritten === false) {
+                throw new AppException('Failed to write signed message for verification');
+            }
+
+            // Write the public key to a file for gpg --import.
+            $keyFile = $tmpHome . '/pubkey.asc';
+            $bytesWritten = file_put_contents($keyFile, $publicKey);
+            if ($bytesWritten === false) {
+                throw new AppException('Failed to write public key for verification');
+            }
+
+            // Import the public key to get its primary fingerprint.
             $gpg = new gnupg();
             $gpg->seterrormode(gnupg::ERROR_EXCEPTION);
 
@@ -153,20 +185,17 @@ class PgpSigningService
                 throw new AppException('Invalid public key format');
             }
 
-            // For combined cleartext-signed messages, pass the full signed block
-            // as the first argument and false as the second (no separate plaintext).
-            $info = $gpg->verify($signedMessage, false);
-            if (!is_array($info) || empty($info)) {
-                throw new AppException('Verification error');
-            }
+            $primaryFingerprint = $keyInfo['fingerprint'];
 
-            foreach ($info as $sig) {
-                if (isset($sig['summary']) && ($sig['summary'] & GNUPG_SIGSUM_RED) === 0) {
-                    return true;
-                }
-            }
+            // Assign ultimate ownertrust so GPG validates the signature.
+            $this->setOwnertrust($tmpHome, $primaryFingerprint, $gpg);
 
-            return false;
+            // Run gpg --verify with --status-fd 1 for machine-parseable output.
+            $cmd = 'gpg --homedir ' . escapeshellarg($tmpHome)
+                . ' --status-fd 1 --verify ' . escapeshellarg($msgFile) . ' 2>&1';
+            exec($cmd, $statusLines, $returnVar);
+
+            return $this->parseVerifyStatus($statusLines, $returnVar, $primaryFingerprint);
         } catch (AppException $e) {
             throw $e;
         } catch (Exception $e) {
@@ -176,6 +205,111 @@ class PgpSigningService
             putenv("GNUPGHOME={$this->keyConfigPath}");
             $this->removeTempDir($tmpHome);
         }
+    }
+
+    /**
+     * Assign ultimate ownertrust to a key so GPG validates signatures against it.
+     *
+     * @param string $gpgHome     Path to the temporary GnuPG home.
+     * @param string $fingerprint The primary key fingerprint to trust.
+     * @param gnupg|null $gpg     Optional gnupg instance (unused, kept for API compat).
+     */
+    private function setOwnertrust(string $gpgHome, string $fingerprint, ?gnupg $gpg = null): void
+    {
+        $trustFile = $gpgHome . '/.ownertrust';
+        $content = $fingerprint . ':6:' . "\n";
+        file_put_contents($trustFile, $content);
+
+        // Use gpg CLI to import ownertrust (the PHP extension does not expose this).
+        exec(
+            'gpg --homedir ' . escapeshellarg($gpgHome) . ' --import-ownertrust 2>&1',
+            $output,
+            $returnVar
+        );
+
+        // Remove the trust file — it has been imported into trustdb.gpg.
+        @unlink($trustFile);
+    }
+
+    /**
+     * Parse gpg --status-fd 1 output to determine signature validity.
+     *
+     * A signature is considered valid only when:
+     * - GOODSIG and VALIDSIG lines are present.
+     * - No BADSIG, EXPKEYSIG (expired key), REVKEYSIG (revoked key),
+     *   EXP_BADSIG, or ERRSIG lines are present.
+     * - The VALIDSIG line's primary key fingerprint matches the expected fingerprint.
+     *
+     * @param array $statusLines  Lines of output from gpg --status-fd 1 --verify.
+     * @param int   $returnVar    Exit code from gpg (may be non-zero even for warnings).
+     * @param string $expectedFp  The primary key fingerprint the key should match.
+     * @return bool
+     */
+    private function parseVerifyStatus(array $statusLines, int $returnVar, string $expectedFp): bool
+    {
+        $hasGoodSig = false;
+        $hasValidSig = false;
+        $validSigPrimaryFp = '';
+
+        foreach ($statusLines as $line) {
+            $line = trim($line);
+
+            // BADSIG: Bad signature
+            if (str_starts_with($line, '[GNUPG:] BADSIG')) {
+                return false;
+            }
+
+            // EXP_BADSIG: Expired signature (bad)
+            if (str_starts_with($line, '[GNUPG:] EXP_BADSIG')) {
+                return false;
+            }
+
+            // ERRSIG: Signature error
+            if (str_starts_with($line, '[GNUPG:] ERRSIG')) {
+                return false;
+            }
+
+            // REVKEYSIG: Key used for signing is revoked
+            if (str_starts_with($line, '[GNUPG:] REVKEYSIG')) {
+                return false;
+            }
+
+            // EXPKEYSIG: Key has expired at the time of verification
+            if (str_starts_with($line, '[GNUPG:] EXPKEYSIG')) {
+                return false;
+            }
+
+            // GOODSIG: A good signature was found
+            if (str_starts_with($line, '[GNUPG:] GOODSIG')) {
+                $hasGoodSig = true;
+            }
+
+            // VALIDSIG: The signature is cryptographically valid.
+            // Format: VALIDSIG <fp> <creation-date> <expiry> <hash-class> ...
+            // The last field is the primary key fingerprint.
+            if (str_starts_with($line, '[GNUPG:] VALIDSIG')) {
+                $hasValidSig = true;
+                $parts = explode(' ', $line);
+                // VALIDSIG <signing_fp> <timestamp> <expiry> <hash_class> <pubkey_algo>
+                // <hash_algo> <status> <primary_fp>
+                // The primary key fingerprint is the last space-separated field.
+                if (count($parts) >= 9) {
+                    $validSigPrimaryFp = end($parts);
+                }
+            }
+        }
+
+        // Both GOODSIG and VALIDSIG must be present.
+        if (!$hasGoodSig || !$hasValidSig) {
+            return false;
+        }
+
+        // The VALIDSIG primary key fingerprint must match the imported key.
+        if ($validSigPrimaryFp === '' || !hash_equals($validSigPrimaryFp, $expectedFp)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
