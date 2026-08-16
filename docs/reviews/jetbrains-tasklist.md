@@ -662,7 +662,7 @@ Acceptance Criteria:
 
 ### 23. TokenLinkService Security Test Suite
 
-Status: `TODO`  
+Status: `DONE`  
 Priority: `P1`  
 Files:
 
@@ -670,23 +670,23 @@ Files:
 
 Tasks:
 
-- [ ] Test invalid base64.
-- [ ] Test tampered HMAC.
-- [ ] Test tampered IV.
-- [ ] Test tampered ciphertext.
-- [ ] Test expired token.
-- [ ] Test malformed JSON payload.
-- [ ] Test missing email.
-- [ ] Test missing expiration.
-- [ ] Test non-numeric expiration.
-- [ ] Test secret rotation invalidates token.
-- [ ] Test email normalization.
+- [x] Test invalid base64.
+- [x] Test tampered HMAC.
+- [x] Test tampered IV.
+- [x] Test tampered ciphertext.
+- [x] Test expired token.
+- [x] Test malformed JSON payload.
+- [x] Test missing email.
+- [x] Test missing expiration.
+- [x] Test non-numeric expiration.
+- [x] Test secret rotation invalidates token.
+- [x] Test email normalization.
 
 ---
 
 ### 24. PgpKeyService Security Test Suite
 
-Status: `TODO`  
+Status: `DONE`  
 Priority: `P1`  
 Files:
 
@@ -694,20 +694,20 @@ Files:
 
 Tasks:
 
-- [ ] Invalid email rejects without network request.
-- [ ] First server 404, second server valid.
-- [ ] All servers fail.
-- [ ] HTTP 500 ignored.
-- [ ] Timeout handled.
-- [ ] Marker text without valid PGP key rejected.
-- [ ] Key UID mismatch rejected once UID validation is implemented.
-- [ ] Multiple key blocks handled deterministically.
+- [x] Invalid email rejects without network request.
+- [x] First server 404, second server valid.
+- [x] All servers fail.
+- [x] HTTP 500 ignored.
+- [x] Timeout handled.
+- [x] Marker text without valid PGP key rejected.
+- [x] Key UID mismatch rejected once UID validation is implemented.
+- [x] Multiple key blocks handled deterministically.
 
 ---
 
 ### 25. Controller Security Test Suite
 
-Status: `TODO`  
+Status: `DONE`  
 Priority: `P1`  
 Files:
 
@@ -715,18 +715,18 @@ Files:
 
 Tasks:
 
-- [ ] Invalid JSON returns 400.
-- [ ] Missing CSRF returns 400.
-- [ ] Invalid CSRF returns 400.
-- [ ] Missing token returns 400.
-- [ ] Malformed token returns 400.
-- [ ] Expired token returns 400.
-- [ ] IP limiter returns 429.
-- [ ] Token limiter returns 429.
-- [ ] DTO validation precedes token limiter.
-- [ ] Email verify URL is absolute.
-- [ ] Encrypted message is included in email.
-- [ ] Plaintext is not included if frontend sends only ciphertext.
+- [x] Invalid JSON returns 400.
+- [x] Missing CSRF returns 400.
+- [x] Invalid CSRF returns 400.
+- [x] Missing token returns 400.
+- [x] Malformed token returns 400.
+- [x] Expired token returns 400.
+- [x] IP limiter returns 429.
+- [x] Token limiter returns 429.
+- [x] DTO validation precedes token limiter.
+- [x] Email verify URL is absolute.
+- [x] Encrypted message is included in email.
+- [x] Plaintext is not included if frontend sends only ciphertext.
 
 ---
 
