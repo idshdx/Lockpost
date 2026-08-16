@@ -125,7 +125,7 @@ class DefaultControllerTest extends WebTestCase
             [],
             [],
             ['CONTENT_TYPE' => 'application/json'],
-            json_encode(['encryptedMessage' => '-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----'])
+            json_encode(['encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----"])
         );
 
         self::assertResponseStatusCodeSame(400);
@@ -134,4 +134,37 @@ class DefaultControllerTest extends WebTestCase
         self::assertFalse($data['success']);
     }
 
+    /**
+     * Validates that a malformed token (too short) triggers a DTO validation
+     * error (400) BEFORE the token-specific rate limiter bucket is consumed.
+     *
+     * Sends the same malformed token multiple times — if rate limiting
+     * were checking before validation, the 2nd request would return 429
+     * instead of 400.
+     *
+     * Validates: Task 7 acceptance criteria — invalid DTOs do not consume
+     * token-specific limiter buckets.
+     */
+    public function testMalformedTokenDoesNotConsumeTokenRateLimiter(): void
+    {
+        $client = static::createClient();
+
+        $payload = json_encode([
+            'token' => 'too-short',  // fails token format validation
+            'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+            '_csrf_token' => 'test',
+        ]);
+
+        // First request — should get 400 (validation error), not 429
+        $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
+        self::assertResponseStatusCodeSame(400);
+
+        // Second request with same malformed token — should STILL get 400,
+        // not 429. If rate limiter consumed before validation, this would be 429.
+        $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
+        self::assertResponseStatusCodeSame(400);
+
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
 }

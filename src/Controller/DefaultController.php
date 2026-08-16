@@ -210,12 +210,10 @@ class DefaultController extends AbstractController
             return $this->jsonError('Invalid JSON payload', Response::HTTP_BAD_REQUEST);
         }
 
-        $error = $this->validateSubmission($request, $data, $validator);
+        $error = $this->validateSubmission($request, $data, $validator, $dto);
         if ($error !== null) {
             return $error;
         }
-
-        $dto = new MessageSubmitRequest($data);
 
         // Resolve the recipient email from the token, return error if invalid
         $recipientEmail = $this->resolveRecipient($dto->getToken());
@@ -263,25 +261,31 @@ class DefaultController extends AbstractController
     }
 
     /**
-     * Validates CSRF token and rate limits for message submission.
+     * Validates CSRF token, DTO, and rate limits for message submission.
      * Returns an error Response if validation fails, null if valid.
+     * On success, sets $dto to the validated MessageSubmitRequest.
+     *
+     * The token-specific rate limiter is consumed ONLY after DTO validation
+     * passes, so malformed/invalid requests do not deplete token buckets.
      */
-    private function validateSubmission(Request $request, array $data, ValidatorInterface $validator): ?Response
+    private function validateSubmission(Request $request, array $data, ValidatorInterface $validator, ?MessageSubmitRequest &$dto): ?Response
     {
         $csrfToken = new CsrfToken('submit_message', $data['_csrf_token'] ?? '');
         if (!$this->csrfTokenManager->isTokenValid($csrfToken)) {
             return $this->jsonError('Invalid or missing CSRF token', Response::HTTP_BAD_REQUEST);
         }
 
-        $rateLimitError = $this->checkRateLimits($request, $data);
-        if ($rateLimitError !== null) {
-            return $rateLimitError;
-        }
-
+        // Validate DTO before consuming rate limit buckets.
         $dto = new MessageSubmitRequest($data);
         $validationError = $this->validateDto($dto, $validator);
         if ($validationError !== null) {
             return $validationError;
+        }
+
+        // Only check rate limits after DTO validation passes.
+        $rateLimitError = $this->checkRateLimits($request, $data);
+        if ($rateLimitError !== null) {
+            return $rateLimitError;
         }
 
         return null;
