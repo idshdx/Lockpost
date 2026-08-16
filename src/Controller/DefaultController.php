@@ -117,13 +117,19 @@ class DefaultController extends AbstractController
             $email = $this->linkService->validateLink($token);
             $publicKey = $this->pgpKeyService->getPublicKeyByEmail($email);
 
-            return $this->render('default/submit.html.twig', [
+            $response = $this->render('default/submit.html.twig', [
                 'email' => $email,
                 'token' => $token,
                 'publicKey' => $publicKey
             ]);
+            // Prevent caching of pages containing tokens.
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            return $response;
         } catch (Exception $e) {
-            $this->logger->error('Invalid or expired link', ['error' => $e->getMessage()]);
+            // Log without exception object — stack traces may contain tokens.
+            // The TokenScrubbingProcessor will redact any token strings in the message.
+            $this->logger->error('Token validation failed for submission link');
             $this->addFlash('danger', 'This link is invalid or has expired. Ask for a new one. Or use the form below to generate a link');
             return $this->redirectToRoute('app_home');
         }
@@ -172,10 +178,14 @@ class DefaultController extends AbstractController
 
     /**
      * Handles errors during message submission: logs the error and returns a JSON response.
+     *
+     * The log message scrubbed by TokenScrubbingProcessor for tokens/emails.
+     * The exception object is not passed as context to prevent stack traces
+     * (which may contain token values) from leaking into log files.
      */
     private function handleSubmissionError(Exception $e): Response
     {
-        $this->logger->error('Failed to submit message: ' . $e->getMessage(), ['exception' => $e]);
+        $this->logger->error('Failed to submit message: ' . $e->getMessage());
         return $this->json([
             'success' => false,
             'error' => 'An internal error occurred while sending the message.'
@@ -413,7 +423,7 @@ class DefaultController extends AbstractController
 
             $request->getSession()->set('last_verification_result', $isValid);
         } catch (Exception $e) {
-            $this->logger->error('Signature verification error: ' . $e->getMessage());
+            $this->logger->error('Signature verification error', ['exception_class' => get_class($e)]);
             $this->addFlash('danger', 'Error during verification. Please check your inputs and try again.');
         }
 
