@@ -95,7 +95,7 @@ Acceptance Criteria:
 
 ### 3. Resolve Browser-Only Verification Documentation Mismatch
 
-Status: `TODO`  
+Status: `WONT_DO`  
 Area: Privacy / Documentation / Product Behavior  
 Files:
 
@@ -126,7 +126,7 @@ Acceptance Criteria:
 
 ### 4. Prevent Token Leakage Through Logs
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Privacy / Operations  
 Files:
 
@@ -141,13 +141,13 @@ Tokens are present in `/submit/{token}` URLs and can leak through access logs, b
 
 Tasks:
 
-- [ ] Review NGINX access log format.
-- [ ] Scrub or disable logging of `/submit/{token}` path values.
-- [ ] Add `Referrer-Policy: no-referrer`.
-- [ ] Consider `Cache-Control: no-store` on submit pages.
-- [ ] Document token URL sensitivity.
-- [ ] Consider future migration to URL-fragment token flow.
-- [ ] Ensure errors do not log raw tokens.
+- [x] Review NGINX access log format.
+- [x] Scrub or disable logging of /submit/{token} path values.
+- [x] Add Referrer-Policy: no-referrer.
+- [x] Consider Cache-Control: no-store on submit pages.
+- [x] Document token URL sensitivity.
+- [x] Consider future migration to URL-fragment token flow.
+- [x] Ensure errors do not log raw tokens.
 
 Acceptance Criteria:
 
