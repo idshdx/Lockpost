@@ -32,6 +32,17 @@
                 </button>
             </div>
 
+            {% if keyFingerprint %}
+            <div class="alert alert-secondary mb-3">
+                <h2 class="h5 alert-heading">Recipient Key Information</h2>
+                <p class="mb-1"><strong>Fingerprint:</strong> <code>{{ keyFingerprint }}</code></p>
+                <p class="mb-1"><strong>Source:</strong> {{ keySource }}</p>
+                {% if keyEmails %}
+                <p class="mb-0"><strong>Email UIDs:</strong> {{ keyEmails|join(', ') }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
             <div class="alert alert-info">
                 <h2 class="h5 alert-heading">Important Information</h2>
                 <ul class="mb-0">
