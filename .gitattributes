@@ -1,0 +1,33 @@
+# Force LF line endings for text files
+* text=auto eol=lf
+
+# Explicitly set LF for specific file types
+*.php eol=lf
+*.yaml eol=lf
+*.yml eol=lf
+*.md eol=lf
+*.json eol=lf
+*.xml eol=lf
+*.twig eol=lf
+*.sh eol=lf
+*.conf eol=lf
+*.lock eol=lf
+
+# Docker files
+Dockerfile eol=lf
+docker-compose*.yml eol=lf
+
+# Composer files
+composer.json eol=lf
+composer.lock eol=lf
+
+# Symfony files
+symfony.lock eol=lf
+importmap.php eol=lf
+
+# GitHub actions/workflows (if any)
+.action* eol=lf
+workflows/* eol=lf
+
+# Keep CRLF for batch files (Windows)
+*.bat eol=crlf

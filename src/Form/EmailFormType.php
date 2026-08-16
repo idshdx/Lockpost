@@ -22,8 +22,8 @@ class EmailFormType extends AbstractType
                     'placeholder' => 'Enter your email address'
                 ],
                 'constraints' => [
-                    new NotBlank(['message' => 'Please enter your email address']),
-                    new Email(['message' => 'Please enter a valid email address'])
+                    new NotBlank(message: 'Please enter your email address'),
+                    new Email(message: 'Please enter a valid email address')
                 ]
             ])
             ->add('submit', SubmitType::class, [
@@ -44,5 +44,4 @@ class EmailFormType extends AbstractType
     {
         return 'email_form'; // Explicitly set the form name
     }
-
 }

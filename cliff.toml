@@ -1,0 +1,9 @@
+[git]
+convention = "none"
+tag_pattern = "v*"
+skip_commit = false
+
+[changelog]
+path = "docs/CHANGELOG.md"
+template = "keep-a-changelog"
+output = "stdout"

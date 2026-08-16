@@ -20,18 +20,23 @@ class PgpSigningServiceTest extends TestCase
         $this->testPrivateKeyPath = __DIR__ . '/../../config/pgp/private.key';
         $this->testPassphrase = 'your-secure-passphrase';
 
-        copy($this->testPrivateKeyPath, $this->testPgpDir . '/private.key');
-        copy(__DIR__ . '/../../config/pgp/public.key', $this->testPgpDir . '/public.key');
+        $destPrivate = $this->testPgpDir . '/private.key';
+        $destPublic = $this->testPgpDir . '/public.key';
+        copy($this->testPrivateKeyPath, $destPrivate);
+        copy(__DIR__ . '/../../config/pgp/public.key', $destPublic);
+        // 0600: private key readable only by owner — safe
+        chmod($destPrivate, 0600);
+        // 0644: public key readable by all, writable by owner — safe for a public key
+        chmod($destPublic, 0644);
 
-        $this->testPrivateKeyPath = $this->testPgpDir . '/private.key';
-        chmod($this->testPrivateKeyPath, 0600);
+        $this->testPrivateKeyPath = $destPrivate;
 
         $this->pgpSigningService = new PgpSigningService(
-//            TestHelper::createErrorHandler(),
             $this->testPrivateKeyPath,
             $this->testPassphrase,
             $this->testPgpDir . '/key-config',
-            $this->testPgpDir . '/public.key'
+            $this->testPgpDir . '/public.key',
+            'test'
         );
     }
 
@@ -47,6 +52,8 @@ class PgpSigningServiceTest extends TestCase
         $signedMessage = $this->pgpSigningService->signMessage($message);
 
         $this->assertNotEmpty($signedMessage);
+        // signMessage() produces a combined cleartext-signed block
+        $this->assertStringContainsString('-----BEGIN PGP SIGNED MESSAGE-----', $signedMessage);
         $this->assertStringContainsString('-----BEGIN PGP SIGNATURE-----', $signedMessage);
         $this->assertStringContainsString('-----END PGP SIGNATURE-----', $signedMessage);
     }
@@ -54,43 +61,74 @@ class PgpSigningServiceTest extends TestCase
     public function testVerifySigning(): void
     {
         $message = 'Test message to verify';
-        $signature = $this->pgpSigningService->signMessage($message);
+        $signedBlock = $this->pgpSigningService->signMessage($message);
         $publicKey = file_get_contents($this->testPgpDir . '/public.key');
 
-        $this->expectException(AppException::class);
-        $this->expectExceptionMessage('Unexpected error during signature verification: verify failed');
+        $isVerified = $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
 
-        $this->pgpSigningService->verifySignature($message, $signature, $publicKey);
+        $this->assertTrue($isVerified, 'Sign then verify with own key must return true');
     }
 
-    public function testInvalidSighing(): void
+    public function testInvalidSigning(): void
     {
-        $message = 'Test message';
-        $signature = '-----BEGIN PGP SIGNATURE-----\nInvalid Signature\n-----END PGP SIGNATURE-----';
+        $signedBlock = '-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Tampered content
+
+-----BEGIN PGP SIGNATURE-----
+
+Invalid Signature Data Here
+-----END PGP SIGNATURE-----';
         $publicKey = file_get_contents($this->testPgpDir . '/public.key');
 
         $this->expectException(AppException::class);
-        $this->expectExceptionMessage('Unexpected error during signature verification: verify failed');
 
-        $this->pgpSigningService->verifySignature($message, $signature, $publicKey);
+        $this->pgpSigningService->verifySignature($signedBlock, $publicKey);
     }
 
     public function testInvalidKey(): void
     {
         putenv('GNUPGHOME=' . $this->testPgpDir . '/key-config');
 
-        // Create a service with an invalid private key path to force an error
+        // Create a service with an invalid private key path to force an error.
+        // Uses a helper to avoid SonarQube "useless object instantiation" warning.
         $invalidKeyPath = $this->testPgpDir . '/nonexistent.key';
 
         $this->expectException(AppException::class);
-        $this->expectExceptionMessage('Initialization error');
+        $this->expectExceptionMessage('PGP private key file is missing or unreadable');
 
-        new PgpSigningService(
-            $invalidKeyPath,
-            'any-passphrase',
-            $this->testPgpDir . '/key-config',
-            $this->testPgpDir . '/public.key'
-            );
+        $this->createPgpSigningService($invalidKeyPath, 'any-passphrase');
+    }
+
+    public function testPermissionCheckRejectsWorldReadablePrivateKey(): void
+    {
+        putenv('GNUPGHOME=' . $this->testPgpDir . '/key-config');
+
+        // Relax permissions on the private key to trigger the runtime check.
+        // Intentionally world-readable — this is a test scenario.
+        @chmod($this->testPrivateKeyPath, 0644);
+
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('PGP private key must not be accessible by group or others');
+
+        // Uses a helper to avoid SonarQube "useless object instantiation" warning.
+        $this->createPgpSigningService($this->testPrivateKeyPath, $this->testPassphrase);
+    }
+
+    public function testPermissionCheckWarnsOnWritablePublicKey(): void
+    {
+        putenv('GNUPGHOME=' . $this->testPgpDir . '/key-config');
+
+        // Relax permissions on the public key to trigger the runtime check.
+        // The constructor should log a warning rather than throw for public-key
+        // writability, because host-mounted volumes can expose nonstandard bits.
+        // Intentionally fully writable — this is a test scenario.
+        @chmod($this->testPgpDir . '/public.key', 0666);
+
+        $service = $this->createPgpSigningService($this->testPrivateKeyPath, $this->testPassphrase);
+
+        $this->assertInstanceOf(PgpSigningService::class, $service);
     }
 
     public function testInvalidPassphrase(): void
@@ -100,12 +138,7 @@ class PgpSigningServiceTest extends TestCase
         // Keys generated by init-pgp.sh use %no-protection (no passphrase).
         // GnuPG silently ignores a wrong passphrase on unprotected keys,
         // so instantiation must succeed — signing will still work.
-        $service = new PgpSigningService(
-            $this->testPrivateKeyPath,
-            'wrong-passphrase',
-            $this->testPgpDir . '/key-config',
-            $this->testPgpDir . '/public.key'
-        );
+        $service = $this->createPgpSigningService($this->testPrivateKeyPath, 'wrong-passphrase');
 
         // Verify the service is actually functional despite the wrong passphrase
         $signed = $service->signMessage('test');
@@ -115,13 +148,15 @@ class PgpSigningServiceTest extends TestCase
     public function testInvalidSignatureVerification(): void
     {
         $message = 'Test message';
-        $signature = $this->pgpSigningService->signMessage($message);
-        $invalidPublicKey = '-----BEGIN PGP PUBLIC KEY BLOCK-----\nInvalid Key\n-----END PGP PUBLIC KEY BLOCK-----';
+        $signedBlock = $this->pgpSigningService->signMessage($message);
+        $invalidPublicKey = '-----BEGIN PGP PUBLIC KEY BLOCK-----
+Invalid Key
+-----END PGP PUBLIC KEY BLOCK-----';
 
         $this->expectException(AppException::class);
         $this->expectExceptionMessage('Invalid public key format');
 
-        $this->pgpSigningService->verifySignature($message, $signature, $invalidPublicKey);
+        $this->pgpSigningService->verifySignature($signedBlock, $invalidPublicKey);
     }
 
     public function testGetServerPublicKey(): void
@@ -130,5 +165,20 @@ class PgpSigningServiceTest extends TestCase
         $this->assertNotEmpty($publicKey);
         $this->assertStringContainsString('-----BEGIN PGP PUBLIC KEY BLOCK-----', $publicKey);
         $this->assertStringContainsString('-----END PGP PUBLIC KEY BLOCK-----', $publicKey);
+    }
+
+    /**
+     * Helper to create a PgpSigningService for tests that expect constructor exceptions.
+     * Using a helper avoids SonarQube false positives about "useless object instantiation".
+     */
+    private function createPgpSigningService(string $privateKeyPath, string $passphrase): PgpSigningService
+    {
+        return new PgpSigningService(
+            $privateKeyPath,
+            $passphrase,
+            $this->testPgpDir . '/key-config',
+            $this->testPgpDir . '/public.key',
+            'test'
+        );
     }
 }

@@ -19,8 +19,6 @@
 ###> symfony/asset-mapper ###
 /public/assets/
 /assets/vendor/
-# Keep the vendored openpgp.min.js — it is not installable via importmap:require
-!/assets/vendor/openpgp.min.js
 ###< symfony/asset-mapper ###
 
 .DS_Store
@@ -40,3 +38,4 @@ docker/mysql
 scripts/php-docker.bat
 *.code-workspace
 .kiro/settings/mcp.json
+.kiro/

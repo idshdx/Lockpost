@@ -4,3 +4,5 @@ framework:
     storage_factory_id: session.storage.factory.mock_file
   asset_mapper:
     importmap_polyfill: false
+  profiler:
+    collect_serializer_data: true

@@ -6,13 +6,16 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 class DefaultControllerTest extends WebTestCase
 {
+    private const VERIFY_ROUTE = '/verify';
+    private const EMAIL_FORM_SELECTOR = 'form[name="email_form"]';
+
     public function testIndexPage(): void
     {
         $client = static::createClient();
         $client->request('GET', '/');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="email_form"]');
+        self::assertSelectorExists(self::EMAIL_FORM_SELECTOR);
     }
 
     public function testFlashMessageRendersOutsideBodyBlock(): void
@@ -20,20 +23,20 @@ class DefaultControllerTest extends WebTestCase
         $client = static::createClient();
         $crawler = $client->request('GET', '/');
 
-        $form = $crawler->filter('form[name="email_form"]')->form([
+        $form = $crawler->filter(self::EMAIL_FORM_SELECTOR)->form([
             'email_form[email]' => 'invalid-email',
         ]);
 
-        $crawler = $client->submit($form);
+        $client->submit($form);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('form[name="email_form"]');
+        self::assertSelectorExists(self::EMAIL_FORM_SELECTOR);
     }
 
     public function testVerifyPage(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/verify');
+        $client->request('GET', self::VERIFY_ROUTE);
 
         self::assertResponseIsSuccessful();
         // The verify page now uses a plain HTML form wired to the Stimulus verify controller
@@ -55,7 +58,7 @@ class DefaultControllerTest extends WebTestCase
         ]);
 
         // Invalid CSRF → form not submitted → flash added → redirect to /verify
-        self::assertResponseRedirects('/verify');
+        self::assertResponseRedirects(self::VERIFY_ROUTE);
         $client->followRedirect();
         self::assertRouteSame('app_verify');
     }
@@ -75,12 +78,60 @@ class DefaultControllerTest extends WebTestCase
         ]);
 
         // Invalid CSRF → flash added → redirect to /verify
-        self::assertResponseRedirects('/verify');
-        $crawler = $client->followRedirect();
+        self::assertResponseRedirects(self::VERIFY_ROUTE);
+        $client->followRedirect();
+
         self::assertResponseIsSuccessful();
 
         // Assert that a flash/alert message is displayed
-        $this->assertGreaterThan(0, $crawler->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
+        self::assertGreaterThan(0, $client->getCrawler()->filter('[role="alert"]')->count(), 'Expected a role="alert" element to be rendered.');
+    }
+
+    /**
+     * Requirement 9.3: APP_MAIL_FROM env var must be used as the From address.
+     *
+     * The `app.mail_from` DI parameter is wired to `%env(APP_MAIL_FROM)%` in
+     * config/services.yaml. This test verifies that, in the test environment
+     * (where .env.test sets APP_MAIL_FROM=noreply@example.com), the container
+     * resolves the parameter to that exact address — proving the env var is the
+     * source of truth for the outbound From header.
+     *
+     * Validates: Requirements 9.3
+     */
+    public function testAppMailFromParameterResolvesFromEnv(): void
+    {
+        $container = static::getContainer();
+
+        // In the test container the resolved sender should come from the
+        // active APP_MAIL_FROM environment value.
+        $mailFrom = $container->getParameter('app.mail_from');
+
+        self::assertSame('noreply@example.com', $mailFrom);
+    }
+
+    /**
+     * Validates that /message/submit returns HTTP 400 with success=false when
+     * the required `recipient` field is absent from the JSON payload.
+     *
+     * Validates: Requirements 9.3, 9.4
+     */
+    public function testSubmitMessageReturnsErrorWhenRecipientMissing(): void
+    {
+        $client = static::createClient();
+
+        $client->request(
+            'POST',
+            '/message/submit',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['encryptedMessage' => '-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----'])
+        );
+
+        self::assertResponseStatusCodeSame(400);
+
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
     }
 
 }

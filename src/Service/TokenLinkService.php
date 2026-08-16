@@ -42,22 +42,24 @@ class TokenLinkService
     {
         $expiration = time() + $this->expirationPeriod;
         $data = json_encode([
-            'email' => $email,
-            'exp' => $expiration
+            'email' => strtolower(trim($email)),
+            'exp' => $expiration,
+            'nonce' => bin2hex(random_bytes(8)),
         ], JSON_THROW_ON_ERROR);
 
         $ivlen = openssl_cipher_iv_length(self::CIPHER);
         $iv = random_bytes($ivlen);
 
-        $key = $this->deriveKey();
-        $encrypted = openssl_encrypt($data, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv);
+        $encKey = $this->deriveKey('lockpost-token-enc');
+        $encrypted = openssl_encrypt($data, self::CIPHER, $encKey, OPENSSL_RAW_DATA, $iv);
 
         if ($encrypted === false) {
             throw new AppException('Failed to encrypt data');
         }
 
         $payload = $iv . $encrypted;
-        $hmac = hash_hmac('sha256', $payload, $key, true);
+        $hmacKey = $this->deriveKey('lockpost-token-auth');
+        $hmac = hash_hmac('sha256', $payload, $hmacKey, true);
 
         // Encode securely: (HMAC + IV + Encrypted Data)
         return rtrim(strtr(base64_encode($hmac . $payload), '+/', '-_'), '=');
@@ -84,9 +86,12 @@ class TokenLinkService
                 throw new AppException('Invalid token format');
             }
 
-            $key = $this->deriveKey();
             $hmacSize = 32; // SHA256 produces 32 bytes
             $ivlen = openssl_cipher_iv_length(self::CIPHER);
+
+            if (strlen($decoded) < ($hmacSize + $ivlen + 1)) {
+                throw new AppException('Invalid token length');
+            }
 
             $hmac = substr($decoded, 0, $hmacSize);
             $iv = substr($decoded, $hmacSize, $ivlen);
@@ -97,20 +102,22 @@ class TokenLinkService
             }
 
             // Recalculate HMAC and validate it using a constant-time comparison
-            $calculatedHmac = hash_hmac('sha256', $iv . $encrypted, $key, true);
+            $hmacKey = $this->deriveKey('lockpost-token-auth');
+            $calculatedHmac = hash_hmac('sha256', $iv . $encrypted, $hmacKey, true);
             if (!hash_equals($hmac, $calculatedHmac)) {
                 throw new AppException('Token has been tampered with');
             }
 
             // Decrypt the encrypted data
-            $decrypted = openssl_decrypt($encrypted, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv);
+            $encKey = $this->deriveKey('lockpost-token-enc');
+            $decrypted = openssl_decrypt($encrypted, self::CIPHER, $encKey, OPENSSL_RAW_DATA, $iv);
 
             if ($decrypted === false) {
                 throw new AppException('Failed to decrypt data');
             }
 
             $data = json_decode($decrypted, true, 512, JSON_THROW_ON_ERROR);
-            if (!isset($data['email'], $data['exp'])) {
+            if (!is_array($data) || empty($data['email']) || empty($data['exp']) || !is_string($data['email']) || !is_numeric($data['exp'])) {
                 throw new AppException('Invalid token data');
             }
 
@@ -120,22 +127,20 @@ class TokenLinkService
 
             return $data['email'];
         } catch (AppException $e) {
-            // Re-throw AppException directly — don't hide the real reason
             throw $e;
         } catch (Exception $e) {
-            // Avoid exposing sensitive details from unexpected exceptions
-            throw new AppException('Unable to validate token');
+            throw new AppException('Unable to validate token', 0, $e);
         }
     }
 
     /**
-     * Derives a cryptographically secure key from the application secret.
+     * Derives a cryptographically secure, purpose-bound key from the application secret.
      *
+     * @param string $info Context/purpose for HKDF key derivation
      * @return string The derived 256-bit key
      */
-    private function deriveKey(): string
+    private function deriveKey(string $info): string
     {
-        // Derive a key using the app secret (not recommended for very short keys)
-        return hash('sha256', $this->appSecret, true);
+        return hash_hkdf('sha256', $this->appSecret, 32, $info);
     }
 }

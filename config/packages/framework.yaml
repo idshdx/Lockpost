@@ -3,5 +3,15 @@ framework:
   session:
     enabled: true
     handler_id: null
+    cookie_samesite: lax
   csrf_protection:
     enabled: true
+  rate_limiter:
+    submit_ip:
+      policy: fixed_window
+      limit: 5
+      interval: '1 minute'
+    submit_token:
+      policy: sliding_window
+      limit: 10
+      interval: '1 hour'

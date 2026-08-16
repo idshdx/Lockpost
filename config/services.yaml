@@ -4,7 +4,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    app.mail_from: 'noreply@example.com'
+    app.mail_from: '%env(APP_MAIL_FROM)%'
     app.pgp.private_key_path: '%kernel.project_dir%/config/pgp/private.key'
     app.pgp.private_key_passphrase: '%env(PGP_PRIVATE_KEY_PASSPHRASE)%'
     app.pgp.key_config_path: '%kernel.project_dir%/config/pgp/key-config'
@@ -37,3 +37,4 @@ services:
             $passphrase: '%app.pgp.private_key_passphrase%'
             $keyConfigPath: '%app.pgp.key_config_path%'
             $publicKeyPath: '%app.pgp.public_key_path%'
+            $appEnv: '%kernel.environment%'
