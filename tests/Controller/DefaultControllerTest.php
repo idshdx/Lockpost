@@ -3,6 +3,7 @@
 namespace App\Tests\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\RateLimiter\LimiterInterface;
 
 class DefaultControllerTest extends WebTestCase
 {
@@ -166,5 +167,19 @@ class DefaultControllerTest extends WebTestCase
 
         $data = json_decode($client->getResponse()->getContent(), true);
         self::assertFalse($data['success']);
+    }
+
+    /**
+     * Validates that the link_generation and link_generation_failed rate
+     * limiters are configured in the container.
+     *
+     * Validates: Task 8 — rate limiters exist for link generation.
+     */
+    public function testLinkGenerationRateLimitersAreConfigured(): void
+    {
+        $container = static::getContainer();
+
+        self::assertTrue($container->has('limiter.link_generation'));
+        self::assertTrue($container->has('limiter.link_generation_failed'));
     }
 }

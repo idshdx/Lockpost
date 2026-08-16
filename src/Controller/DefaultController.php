@@ -39,6 +39,10 @@ class DefaultController extends AbstractController
         private readonly RateLimiterFactory $submitIpLimiter,
         #[Autowire(service: 'limiter.submit_token')]
         private readonly RateLimiterFactory $submitTokenLimiter,
+        #[Autowire(service: 'limiter.link_generation')]
+        private readonly RateLimiterFactory $linkGenerationLimiter,
+        #[Autowire(service: 'limiter.link_generation_failed')]
+        private readonly RateLimiterFactory $linkGenerationFailedLimiter,
     ) {
     }
 
@@ -62,7 +66,7 @@ class DefaultController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $result = $this->generateLinkResponse($form->get('email')->getData());
+                $result = $this->generateLinkResponse($request, $form->get('email')->getData());
                 if ($result !== null) {
                     return $result;
                 }
@@ -79,12 +83,28 @@ class DefaultController extends AbstractController
     /**
      * Generates a token link if the PGP key exists; otherwise adds a flash warning.
      * Returns a Response if a link was generated, null otherwise.
+     *
+     * Applies IP-based rate limiting before performing a keyserver lookup
+     * to prevent abuse (unlimited outbound network requests).
      */
-    private function generateLinkResponse(string $email): ?Response
+    private function generateLinkResponse(Request $request, string $email): ?Response
     {
+        $ipKey = $request->getClientIp() ?? 'unknown_ip';
+        $ipLimiter = $this->linkGenerationLimiter->create($ipKey);
+        $ipLimitResult = $ipLimiter->consume();
+        if (!$ipLimitResult->isAccepted()) {
+            $retryAfter = max(1, $ipLimitResult->getRetryAfter()->getTimestamp() - time());
+            $this->addFlash('danger', "Too many link generation requests. Please try again in {$retryAfter} seconds.");
+            return null;
+        }
+
         try {
             $keyResult = $this->pgpKeyService->getPgpKeyResult($email);
         } catch (AppException) {
+            // Apply stricter rate limiting for failed lookups
+            $failedLimiter = $this->linkGenerationFailedLimiter->create($ipKey);
+            $failedLimiter->consume();
+
             $servers = implode("\n", array_map(
                 fn(string $host) => "https://$host",
                 PgpKeyService::getKeyServerNames()
