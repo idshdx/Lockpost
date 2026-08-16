@@ -450,7 +450,7 @@ Acceptance Criteria:
 
 ### 15. Add Security Headers
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Web Security  
 Files:
 
@@ -459,13 +459,13 @@ Files:
 
 Tasks:
 
-- [ ] Add `Content-Security-Policy`.
-- [ ] Add `Referrer-Policy: no-referrer`.
-- [ ] Add `X-Content-Type-Options: nosniff`.
-- [ ] Add `Frame-Options` or CSP `frame-ancestors 'none'`.
-- [ ] Add `Strict-Transport-Security` in production.
-- [ ] Add `Cache-Control: no-store` for sensitive submit pages.
-- [ ] Validate AssetMapper/Stimulus compatibility with CSP.
+- [x] Add `Content-Security-Policy`.
+- [x] Add `Referrer-Policy: no-referrer`.
+- [x] Add `X-Content-Type-Options: nosniff`.
+- [x] Add `Frame-Options` or CSP `frame-ancestors 'none'`.
+- [x] Add `Strict-Transport-Security` in production.
+- [x] Add `Cache-Control: no-store` for sensitive submit pages.
+- [x] Validate AssetMapper/Stimulus compatibility with CSP.
 
 Acceptance Criteria:
 
