@@ -160,7 +160,7 @@ Acceptance Criteria:
 
 ### 5. Rework Public Key Trust Model
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Security / PGP Identity  
 Files:
 
@@ -174,17 +174,17 @@ Traditional keyservers may return unverified/stale/spoofed key associations.
 
 Tasks:
 
-- [ ] Prefer WKD lookup if feasible.
-- [ ] Keep `keys.openpgp.org` as primary source.
-- [ ] Reconsider fallback to `keyserver.ubuntu.com`.
-- [ ] Reconsider fallback to `pgp.mit.edu`.
-- [ ] Parse returned PGP key.
-- [ ] Verify UID/email matches requested email.
-- [ ] Return key source metadata.
-- [ ] Display key fingerprint to user.
-- [ ] Display key source to user.
-- [ ] Add tests for mismatched UID/email.
-- [ ] Add tests for invalid PGP block with marker text.
+- [x] Prefer WKD lookup if feasible.
+- [x] Keep `keys.openpgp.org` as primary source.
+- [x] Reconsider fallback to `keyserver.ubuntu.com`.
+- [x] Reconsider fallback to `pgp.mit.edu`.
+- [x] Parse returned PGP key.
+- [x] Verify UID/email matches requested email.
+- [x] Return key source metadata.
+- [x] Display key fingerprint to user.
+- [x] Display key source to user.
+- [x] Add tests for mismatched UID/email.
+- [x] Add tests for invalid PGP block with marker text.
 
 Acceptance Criteria:
 
