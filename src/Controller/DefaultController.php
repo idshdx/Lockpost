@@ -413,9 +413,12 @@ class DefaultController extends AbstractController
     #[Route('/verify', name: 'app_verify')]
     public function verifySignaturePage(Request $request): Response
     {
-        return $this->render('default/verify.html.twig', [
+        $response = $this->render('default/verify.html.twig', [
             'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
         ]);
+        // Prevent caching of the verify page (contains server public key).
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        return $response;
     }
 
     /**
