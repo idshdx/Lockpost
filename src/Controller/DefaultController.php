@@ -19,6 +19,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -255,7 +256,7 @@ class DefaultController extends AbstractController
                 'message' => $dto->getEncryptedMessage(),
                 'message_signature' => $signedMessage,
                 'server_public_key' => $this->pgpSigningService->getServerPublicKey(),
-                'app_verify_url' => $this->generateUrl('app_verify'),
+                'app_verify_url' => $this->generateUrl('app_verify', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ]));
 
         $this->mailer->send($email);
