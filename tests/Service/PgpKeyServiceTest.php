@@ -10,7 +10,7 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 class PgpKeyServiceTest extends TestCase
 {
-    private const VALID_KEY_BODY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nfakekey\n-----END PGP PUBLIC KEY BLOCK-----";
+    private const VALID_KEY_BODY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Test User <user@example.com>\n-----END PGP PUBLIC KEY BLOCK-----";
 
     private function makeService(array $responses): PgpKeyService
     {

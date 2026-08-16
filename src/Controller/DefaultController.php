@@ -81,7 +81,9 @@ class DefaultController extends AbstractController
      */
     private function generateLinkResponse(string $email): ?Response
     {
-        if (!$this->pgpKeyService->verifyPublicKeyExists($email)) {
+        try {
+            $keyResult = $this->pgpKeyService->getPgpKeyResult($email);
+        } catch (AppException) {
             $servers = implode("\n", array_map(
                 fn(string $host) => "https://$host",
                 PgpKeyService::getKeyServerNames()
@@ -91,7 +93,10 @@ class DefaultController extends AbstractController
         }
 
         return $this->render('default/link.html.twig', [
-            'token' => $this->linkService->generateLink($email)
+            'token' => $this->linkService->generateLink($email),
+            'keyFingerprint' => $keyResult->fingerprint,
+            'keySource' => $keyResult->source,
+            'keyEmails' => $keyResult->emails,
         ]);
     }
 
