@@ -106,6 +106,70 @@ class TokenLinkServiceTest extends TestCase
     }
 
     /**
+     * Validates that a token generated with a custom expiration period
+     * is valid when fresh and expires when the period elapses.
+     *
+     * Validates: Task 9 — token lifetime is configurable.
+     */
+    public function testCustomExpirationPeriodIsRespected(): void
+    {
+        $shortTtl = 3600; // 1 hour
+        $service = new TokenLinkService($this->appSecret, $shortTtl);
+
+        $token = $service->generateLink('user@example.com');
+        $validatedEmail = $service->validateLink($token);
+        $this->assertSame('user@example.com', $validatedEmail);
+
+        // Generate an expired token with the same short TTL
+        $expiredToken = $this->generateExpiredTokenForService($service, 'user@example.com', time() - 1);
+        $this->expectException(AppException::class);
+        $this->expectExceptionMessage('expired');
+        $service->validateLink($expiredToken);
+    }
+
+    /**
+     * Validates that getExpirationPeriod returns the configured value.
+     */
+    public function testGetExpirationPeriodReturnsConfiguredValue(): void
+    {
+        $serviceDefault = new TokenLinkService($this->appSecret);
+        $this->assertSame(604800, $serviceDefault->getExpirationPeriod()); // 7 days default
+
+        $serviceCustom = new TokenLinkService($this->appSecret, 86400);
+        $this->assertSame(86400, $serviceCustom->getExpirationPeriod());
+    }
+
+    /**
+     * Generates an expired token for a given service instance using its
+     * internal encryption logic with a past expiration timestamp.
+     */
+    private function generateExpiredTokenForService(TokenLinkService $service, string $email, int $expiry): string
+    {
+        $data = json_encode([
+            'email' => strtolower(trim($email)),
+            'exp'   => $expiry,
+            'nonce' => bin2hex(random_bytes(8)),
+        ], JSON_THROW_ON_ERROR);
+
+        $cipher = 'aes-256-cbc';
+        $ivlen = openssl_cipher_iv_length($cipher);
+        $iv = random_bytes($ivlen);
+
+        $reflection = new \ReflectionClass($service);
+        $deriveKey = $reflection->getMethod('deriveKey');
+        $deriveKey->setAccessible(true);
+
+        $encKey = $deriveKey->invoke($service, 'lockpost-token-enc');
+        $encrypted = openssl_encrypt($data, $cipher, $encKey, OPENSSL_RAW_DATA, $iv);
+
+        $payload = $iv . $encrypted;
+        $hmacKey = $deriveKey->invoke($service, 'lockpost-token-auth');
+        $hmac = hash_hmac('sha256', $payload, $hmacKey, true);
+
+        return rtrim(strtr(base64_encode($hmac . $payload), '+/', '-_'), '=');
+    }
+
+    /**
      * Generates an expired token by directly using the service's internal
      * encryption logic with a past expiration timestamp.
      */

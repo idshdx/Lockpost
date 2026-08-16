@@ -13,9 +13,9 @@ class TokenLinkService
 
     /**
      * @param string $appSecret The secret key used for generating the links.
-     * @param int $expirationPeriod Token expiration period in seconds (default is 30 days).
+     * @param int $expirationPeriod Token expiration period in seconds (default is 7 days).
      */
-    public function __construct(string $appSecret, int $expirationPeriod = 2592000) // 30 days in seconds
+    public function __construct(string $appSecret, int $expirationPeriod = 604800) // 7 days in seconds
     {
         $this->appSecret = $appSecret;
         $this->expirationPeriod = $expirationPeriod;
@@ -142,5 +142,13 @@ class TokenLinkService
     private function deriveKey(string $info): string
     {
         return hash_hkdf('sha256', $this->appSecret, 32, $info);
+    }
+
+    /**
+     * Returns the token expiration period in seconds.
+     */
+    public function getExpirationPeriod(): int
+    {
+        return $this->expirationPeriod;
     }
 }

@@ -118,6 +118,7 @@ class DefaultController extends AbstractController
             'keyFingerprint' => $keyResult->fingerprint,
             'keySource' => $keyResult->source,
             'keyEmails' => $keyResult->emails,
+            'expirationDays' => (int) ceil($this->linkService->getExpirationPeriod() / 86400),
         ]);
     }
 

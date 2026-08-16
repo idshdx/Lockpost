@@ -57,7 +57,7 @@ Paste the signed message and the server's public key into the Verify page to con
 - No message storage — fully stateless, zero persistence
 - No tracking or cookies
 - Client-side encryption only (OpenPGP.js)
-- Stateless tokens using AES-256-CBC + HMAC-SHA256 (30-day expiry)
+- Stateless tokens using AES-256-CBC + HMAC-SHA256 (configurable TTL, default 7 days)
 - Server signs outgoing messages with its own PGP key
 
 ---
@@ -152,6 +152,7 @@ Defined in `.env` (copy from `.env.example`):
 | `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
 | `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `sync://` |
 | `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. Required in production. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty for local dev |
+| `APP_TOKEN_TTL` | Token link expiration in seconds. Default: `604800` (7 days). Set to `86400` (24 hours) for maximum security, or `2592000` (30 days) to match the old default. |
 
 ---
 
