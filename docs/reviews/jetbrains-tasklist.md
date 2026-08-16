@@ -221,7 +221,7 @@ Acceptance Criteria:
 
 ### 7. Validate DTO Before Token-Specific Rate Limiter
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Correctness / Abuse Prevention  
 Files:
 
@@ -234,10 +234,10 @@ Token limiter is consumed before DTO validation errors are returned.
 
 Tasks:
 
-- [ ] Move DTO validation before token limiter consumption.
-- [ ] Return validation errors before hashing/limiting malformed tokens.
-- [ ] Validate/decrypt token before consuming token-specific limiter if appropriate.
-- [ ] Add test for malformed token not polluting token limiter.
+- [x] Move DTO validation before token limiter consumption.
+- [x] Return validation errors before hashing/limiting malformed tokens.
+- [x] Validate/decrypt token before consuming token-specific limiter if appropriate.
+- [x] Add test for malformed token not polluting token limiter.
 - [ ] Add test for valid token rate limiting.
 
 Acceptance Criteria:
