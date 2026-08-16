@@ -195,7 +195,7 @@ Acceptance Criteria:
 
 ### 6. Make Email URLs Absolute
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Email / UX  
 Files:
 
@@ -208,9 +208,9 @@ Problem:
 
 Tasks:
 
-- [ ] Import `Symfony\Component\Routing\Generator\UrlGeneratorInterface`.
-- [ ] Generate verify URL with `UrlGeneratorInterface::ABSOLUTE_URL`.
-- [ ] Confirm trusted host/proxy config is correct in production.
+- [x] Import `Symfony\Component\Routing\Generator\UrlGeneratorInterface`.
+- [x] Generate verify URL with `UrlGeneratorInterface::ABSOLUTE_URL`.
+- [x] Confirm trusted host/proxy config is correct in production.
 - [ ] Add controller or mailer test asserting absolute URL.
 
 Acceptance Criteria:
