@@ -187,4 +187,42 @@ uid           Other Person <other@example.com>
         $this->assertStringContainsString('keyserver.ubuntu.com', $result->source);
         $this->assertSame('user@example.com', $result->emails[0]);
     }
+
+    /**
+     * Timeout or transport errors on a server should be treated as a skip —
+     * the service should fall through to the next server.
+     */
+    public function testGetPublicKeyByEmailHandlesTimeoutByFallingThrough(): void
+    {
+        $service = $this->makeService([
+            // First server times out / throws transport error
+            new MockResponse('', ['http_code' => 500]),
+            // Second server has the key
+            $this->validKeyWithMatchingEmail(),
+            $this->notFound(),
+        ]);
+
+        $key = $service->getPublicKeyByEmail('user@example.com');
+        $this->assertStringContainsString('BEGIN PGP PUBLIC KEY BLOCK', $key);
+    }
+
+    /**
+     * Multiple key blocks in a single response should be handled
+     * deterministically — the first key with a matching UID wins.
+     */
+    public function testGetPublicKeyByEmailHandlesMultipleKeyBlocksDeterministically(): void
+    {
+        $bodyWithMultipleKeys = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Other Person <other@example.com>\n-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Test User <user@example.com>\n-----END PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----";
+
+        $service = $this->makeService([
+            new MockResponse($bodyWithMultipleKeys, ['http_code' => 200]),
+            $this->notFound(),
+            $this->notFound(),
+        ]);
+
+        $result = $service->getPgpKeyResult('user@example.com');
+
+        $this->assertInstanceOf(PgpKeyResult::class, $result);
+        $this->assertContains('user@example.com', $result->emails);
+    }
 }
