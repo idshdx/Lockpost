@@ -29,7 +29,7 @@ Status:
 
 ### 1. Tighten PGP Signature Verification
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Security / Cryptography  
 Files:
 
@@ -42,16 +42,16 @@ Current verification appears to accept signatures when the GPG summary does not 
 
 Tasks:
 
-- [ ] Identify exact `gnupg::verify()` return structure for valid, invalid, expired, revoked, and unknown signatures.
-- [ ] Require explicit good/valid signature status.
-- [ ] Reject revoked signatures.
-- [ ] Reject expired signatures if GPG exposes that status.
-- [ ] Reject bad signatures.
-- [ ] Ensure the signature fingerprint matches the imported public key fingerprint.
-- [ ] Add regression tests for bad signatures.
-- [ ] Add regression tests for signature from a different key.
-- [ ] Add regression tests for invalid public key input.
-- [ ] Add regression tests for malformed signed message input.
+- [x] Identify exact `gnupg::verify()` return structure for valid, invalid, expired, revoked, and unknown signatures.
+- [x] Require explicit good/valid signature status.
+- [x] Reject revoked signatures.
+- [x] Reject expired signatures if GPG exposes that status.
+- [x] Reject bad signatures.
+- [x] Ensure the signature fingerprint matches the imported public key fingerprint.
+- [x] Add regression tests for bad signatures.
+- [x] Add regression tests for signature from a different key.
+- [x] Add regression tests for invalid public key input.
+- [x] Add regression tests for malformed signed message input.
 
 Acceptance Criteria:
 
