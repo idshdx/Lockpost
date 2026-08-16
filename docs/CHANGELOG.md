@@ -48,10 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Server-side verify form now accepts both cleartext-signed and encrypted PGP blocks
 - Client-side submit controller sends CSRF token with JSON payload
 - New `PgpKeyServiceTrustTest` with 8 tests covering UID verification, mismatched UID rejection, fingerprint/source tracking, and email normalization
-- New `TokenScrubbingProcessor` Monolog processor for redacting token URLs and email addresses from log entries
-- `TokenLinkService::getExpirationPeriod()` method for exposing configured TTL
-- New `PgpKeyResult` DTO carrying key metadata (fingerprint, source, verified emails)
-- `link.html.twig` template now displays key fingerprint, source, and email UIDs
-- Configurable token expiration via `APP_TOKEN_TTL` environment variable
-- `link_generation` and `link_generation_failed` rate limiters for keyserver lookups
-- `prod/framework.yaml` with trusted proxy configuration for reverse proxy deployments
+|- New `TokenScrubbingProcessor` Monolog processor for redacting token URLs and email addresses from log entries
+||- `TokenLinkService::getExpirationPeriod()` method for exposing configured TTL
+|- New `PgpKeyResult` DTO carrying key metadata (fingerprint, source, verified emails)
+|- `link.html.twig` template now displays key fingerprint, source, and email UIDs
+|- Configurable token expiration via `APP_TOKEN_TTL` environment variable
+|- `link_generation` and `link_generation_failed` rate limiters for keyserver lookups
+|- `prod/framework.yaml` with trusted proxy configuration for reverse proxy deployments
+|- Added `Permissions-Policy` header to NGINX configs (dev and hardened)
+|- Set `Strict-Transport-Security` to `max-age=31536000; includeSubDomains; preload` in hardened NGINX config
+|- Changed `Referrer-Policy` from `strict-origin-when-cross-origin` to `no-referrer` in hardened NGINX config
+|- Added `Cache-Control: no-store` to `/submit/`, `/message/submit`, and `/verify` routes in NGINX configs
+|- Added `no-store` `Cache-Control` header to `verifySignaturePage()` response
+|- CSP validated for compatibility with Symfony AssetMapper and Stimulus (includes `data:` in script-src)
