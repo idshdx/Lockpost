@@ -341,7 +341,7 @@ Acceptance Criteria:
 
 ### 11. Consider AEAD Token Format v2
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Cryptography  
 Files:
 
@@ -354,11 +354,11 @@ AES-CBC + HMAC is valid but more error-prone than AEAD.
 
 Tasks:
 
-- [ ] Design versioned token format.
-- [ ] Implement `v2` using Sodium XChaCha20-Poly1305 or AES-256-GCM.
-- [ ] Keep backward compatibility for `v1` tokens until expiry.
-- [ ] Add tests for both versions.
-- [ ] Document migration behavior.
+- [x] Design versioned token format.
+- [x] Implement `v2` using Sodium XChaCha20-Poly1305 or AES-256-GCM.
+- [x] Keep backward compatibility for `v1` tokens until expiry.
+- [x] Add tests for both versions.
+- [x] Document migration behavior.
 
 Acceptance Criteria:
 
@@ -369,7 +369,7 @@ Acceptance Criteria:
 
 ### 12. Enforce `APP_SECRET` Strength
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Security / Configuration  
 Files:
 
@@ -384,11 +384,11 @@ Token security depends heavily on `APP_SECRET`.
 
 Tasks:
 
-- [ ] Add startup validation for minimum length.
-- [ ] Recommend at least 32 random bytes encoded as hex/base64.
-- [ ] Fail fast in prod if weak.
-- [ ] Update `.env.example`.
-- [ ] Update production docs.
+- [x] Add startup validation for minimum length.
+- [x] Recommend at least 32 random bytes encoded as hex/base64.
+- [x] Fail fast in prod if weak.
+- [x] Update `.env.example`.
+- [x] Update production docs.
 
 Acceptance Criteria:
 
