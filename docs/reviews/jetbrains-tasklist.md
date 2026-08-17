@@ -221,7 +221,7 @@ Acceptance Criteria:
 
 ### 7. Validate DTO Before Token-Specific Rate Limiter
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Correctness / Abuse Prevention  
 Files:
 
@@ -234,11 +234,11 @@ Token limiter is consumed before DTO validation errors are returned.
 
 Tasks:
 
-- [ ] Move DTO validation before token limiter consumption.
-- [ ] Return validation errors before hashing/limiting malformed tokens.
-- [ ] Validate/decrypt token before consuming token-specific limiter if appropriate.
-- [ ] Add test for malformed token not polluting token limiter.
-- [ ] Add test for valid token rate limiting.
+- [x] Move DTO validation before token limiter consumption.
+- [x] Return validation errors before hashing/limiting malformed tokens.
+- [x] Validate/decrypt token before consuming token-specific limiter if appropriate.
+- [x] Add test for malformed token not polluting token limiter.
+- [x] Add test for valid token rate limiting.
 
 Acceptance Criteria:
 
@@ -564,7 +564,7 @@ Acceptance Criteria:
 
 ### 19. Fix README Symfony Version Mismatch
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Documentation  
 Files:
 
@@ -576,10 +576,10 @@ README says Symfony 7.1 while `composer.json` requires Symfony 7.4.
 
 Tasks:
 
-- [ ] Update README tech stack section.
-- [ ] Confirm PHP version documentation.
-- [ ] Confirm local setup command paths.
-- [ ] Confirm project directory name in clone instructions.
+- [x] Update README tech stack section.
+- [x] Confirm PHP version documentation.
+- [x] Confirm local setup command paths.
+- [x] Confirm project directory name in clone instructions.
 
 Acceptance Criteria:
 
