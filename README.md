@@ -74,7 +74,7 @@ cd sym-pgp-ony
 cp .env.example .env
 ```
 
-The defaults in `.env.example` work for local Docker dev. The only value you may want to change is `APP_SECRET` — set it to any random string.
+The defaults in `.env.example` work for local Docker dev. The only value you may want to change is `APP_SECRET` — set it to a random string of at least 32 bytes (e.g. from `openssl rand -hex 32`).
 
 ### 2. Start containers
 
@@ -220,7 +220,7 @@ docker compose down
 
 ### Tech stack
 
-- **Backend:** PHP 8.3, Symfony 7.1
+- **Backend:** PHP 8.3, Symfony 7.4
 - **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
 - **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
 - **Testing:** PHPUnit 9.5
