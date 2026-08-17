@@ -398,7 +398,7 @@ Acceptance Criteria:
 
 ### 13. Re-enable Composer Platform Checks
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Dependency / Deployment  
 Files:
 
@@ -411,10 +411,10 @@ Problem:
 
 Tasks:
 
-- [ ] Remove `"platform-check": false` or set it to `true`.
-- [ ] Confirm Docker image includes required PHP extensions.
-- [ ] Run Composer install in CI.
-- [ ] Document any reason if keeping disabled.
+- [x] Remove platform-check: false or set it to true.
+- [x] Confirm Docker image includes required PHP extensions.
+- [x] Run Composer install in CI.
+- [x] Document any reason if keeping disabled.
 
 Acceptance Criteria:
 
