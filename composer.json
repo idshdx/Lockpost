@@ -45,8 +45,7 @@
     "symfony/web-link": "^7.4",
     "symfony/yaml": "^7.4",
     "twig/extra-bundle": "^2.12|^3.0",
-    "twig/twig": "^2.12|^3.0",
-    "ext-opcache": "*"
+    "twig/twig": "^2.12|^3.0"
   },
   "config": {
     "allow-plugins": {
