@@ -6,6 +6,7 @@ use App\Exception\AppException;
 use App\Form\MessageSubmitRequest;
 use App\Form\EmailFormType;
 use App\Form\PgpVerifySignatureFormType;
+use App\Service\TokenStateService;
 use App\Service\TokenLinkService;
 use App\Service\PgpKeyService;
 use App\Service\PgpSigningService;
@@ -28,8 +29,9 @@ use App\Exception\ErrorHandler;
 class DefaultController extends AbstractController
 {
     public function __construct(
-        private readonly ErrorHandler     $errorHandler,
-        private readonly TokenLinkService $linkService,
+        private readonly ErrorHandler      $errorHandler,
+        private readonly TokenLinkService  $linkService,
+        private readonly TokenStateService $tokenStateService,
         private readonly PgpKeyService $pgpKeyService,
         private readonly PgpSigningService $pgpSigningService,
         private readonly MailerInterface $mailer,
@@ -113,8 +115,14 @@ class DefaultController extends AbstractController
             return null;
         }
 
+        $token = $this->linkService->generateLink($email);
+
+        // In stateful mode, register the token for revocation / one-time-use tracking.
+        $expiration = time() + $this->linkService->getExpirationPeriod();
+        $this->tokenStateService->registerToken($token, $expiration);
+
         return $this->render('default/link.html.twig', [
-            'token' => $this->linkService->generateLink($email),
+            'token' => $token,
             'keyFingerprint' => $keyResult->fingerprint,
             'keySource' => $keyResult->source,
             'keyEmails' => $keyResult->emails,
@@ -142,6 +150,12 @@ class DefaultController extends AbstractController
     {
         try {
             $email = $this->linkService->validateLink($token);
+
+            // In stateful mode, also check token state (revocation, one-time-use, max submissions).
+            if (!$this->tokenStateService->validateToken($token)) {
+                throw new AppException('Token has been revoked, used, or is not tracked in stateful mode.');
+            }
+
             $publicKey = $this->pgpKeyService->getPublicKeyByEmail($email);
 
             $response = $this->render('default/submit.html.twig', [
@@ -193,6 +207,9 @@ class DefaultController extends AbstractController
             }
 
             $this->sendEncryptedMessageEmail($data, $data->getRecipientEmail());
+
+            // In stateful mode, record the token usage after successful send.
+            $this->tokenStateService->consumeToken($data->getToken());
 
             return $this->json([
                 'success' => true,

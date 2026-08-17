@@ -35,16 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed test method naming typo `testInvalidSighing` to `testInvalidSigning`
 - Set explicit `cookie_samesite: lax` in framework session configuration
 
-### Changed
-- Cached initialized GnuPG signer instance in `PgpSigningService` constructor
+|### Changed
+|- Upgraded PHP from 8.3 to 8.4 in Docker images (performance and security improvements)
+|- Upgraded PHPUnit from 9.6 to 11.5 (latest stable for PHP 8.4)
+|- Updated `phpunit.xml.dist` for PHPUnit 11 compatibility (removed deprecated `listeners`/`coverage` elements, added `source` element)
+||- Cached initialized GnuPG signer instance in `PgpSigningService` constructor
 - Rewrote exception wrapping to preserve `$previous` for debugging
 - Promoted `ErrorHandler` to a constructor-promoted readonly property in `DefaultController`
 - Rewrote `PgpKeyService` to use UID/email verification before accepting keys from key servers
 - `DefaultController::generateLinkResponse()` now accepts `Request` for IP-based rate limiting
 - Changed default token link expiration from 30 days to 7 days
 
-### Added
-- New `TokenLinkServiceTest` covering roundtrip validation, tamper detection, expiry, garbage input, short tokens, empty input, whitespace normalization, and token uniqueness
+|### Added
+| |- AEAD token format v2 using XChaCha20-Poly1305 IETF (combined encryption + authentication, 24-byte nonce)
+| |- Backward-compatible v1 token validation (AES-256-CBC + HMAC-SHA256) for migration
+| |- `generateLinkV1()` method for generating legacy v1 tokens (testing/migration)
+| |- `AppSecretValidationPass` compiler pass — enforces minimum 32-character `APP_SECRET` in production
+| |- `TokenStateService` for optional stateful link mode (revocation, one-time-use, max submissions)
+| |- `APP_TOKEN_STATEFUL` environment variable to toggle stateful mode (default: `0`/disabled)
+| |- Clear plaintext message from textarea after client-side encryption
+||- Sanitized encryption error messages (no key fingerprint or internal detail leaks)
+||- New `TokenLinkServiceTest` covering roundtrip validation, tamper detection, expiry, garbage input, short tokens, empty input, whitespace normalization, and token uniqueness
 - Server-side verify form now accepts both cleartext-signed and encrypted PGP blocks
 - Client-side submit controller sends CSRF token with JSON payload
 - New `PgpKeyServiceTrustTest` with 8 tests covering UID verification, mismatched UID rejection, fingerprint/source tracking, and email normalization

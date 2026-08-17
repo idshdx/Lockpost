@@ -39,3 +39,14 @@ scripts/php-docker.bat
 *.code-workspace
 .kiro/settings/mcp.json
 .kiro/
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+_bmad/render/
+
+# --- BMAD method (generated/local-only) ---
+_bmad/
+_bmad-output/
+.bmad-loop/
+.hermes/
+{"gitignore","var/data/tokens.json"}

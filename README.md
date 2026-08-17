@@ -82,7 +82,7 @@ The defaults in `.env.example` work for local Docker dev. The only value you may
 docker compose up --build -d
 ```
 
-This starts three containers: `php` (PHP 8.3-FPM with Xdebug), `nginx` (reverse proxy on port **8080**), and `mailhog` (local mail catcher on port 8025).
+This starts three containers: `php` (PHP 8.4-FPM with Xdebug), `nginx` (reverse proxy on port **8080**), and `mailhog` (local mail catcher on port 8025).
 
 > **Note on ports:** If port 80 is already in use by another service (e.g. YunoHost), the app is available at **http://localhost:8080**. If port 80 is free, you can change the port mapping in `docker-compose.yml` from `"8080:80"` to `"80:80"`.
 
@@ -220,10 +220,10 @@ docker compose down
 
 ### Tech stack
 
-- **Backend:** PHP 8.3, Symfony 7.4
+- **Backend:** PHP 8.4, Symfony 7.4
 - **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
 - **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
-- **Testing:** PHPUnit 9.5
+- **Testing:** PHPUnit 11
 
 ### PGP key storage
 
