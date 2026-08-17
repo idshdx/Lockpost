@@ -4,33 +4,33 @@ namespace App\Controller;
 
 use App\Exception\AppException;
 use App\Form\MessageSubmitRequest;
-use App\Form\EmailFormType;
-use App\Form\PgpVerifySignatureFormType;
-use App\Service\TokenStateService;
 use App\Service\TokenLinkService;
+use App\Service\TokenStateService;
 use App\Service\PgpKeyService;
 use App\Service\PgpSigningService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Exception;
-use Psr\Log\LoggerInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
-use App\Exception\ErrorHandler;
 
-class DefaultController extends AbstractController
+/**
+ * Handles message submission: the encrypted message form and the
+ * POST endpoint that encrypts and emails messages to recipients.
+ */
+class MessageController extends AbstractController
 {
     public function __construct(
-        private readonly ErrorHandler      $errorHandler,
-        private readonly TokenLinkService  $linkService,
+        private readonly TokenLinkService $linkService,
         private readonly TokenStateService $tokenStateService,
         private readonly PgpKeyService $pgpKeyService,
         private readonly PgpSigningService $pgpSigningService,
@@ -41,93 +41,7 @@ class DefaultController extends AbstractController
         private readonly RateLimiterFactory $submitIpLimiter,
         #[Autowire(service: 'limiter.submit_token')]
         private readonly RateLimiterFactory $submitTokenLimiter,
-        #[Autowire(service: 'limiter.link_generation')]
-        private readonly RateLimiterFactory $linkGenerationLimiter,
-        #[Autowire(service: 'limiter.link_generation_failed')]
-        private readonly RateLimiterFactory $linkGenerationFailedLimiter,
     ) {
-    }
-
-    /**
-     * The homepage of the application.
-     *
-     * Displays a form to generate a link for sending a secure message.
-     *
-     * @param Request $request The HTTP request object.
-     *
-     * @return Response A rendered Twig template with the form data.
-     *
-     * @throws Exception If there is an error while generating the link,
-     * such as if the recipient's email address has no associated PGP public key.
-     */
-    #[Route('/', name: 'app_home')]
-    public function index(Request $request): Response
-    {
-        $form = $this->createForm(EmailFormType::class);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $result = $this->generateLinkResponse($request, $form->get('email')->getData());
-                if ($result !== null) {
-                    return $result;
-                }
-            } catch (Exception $e) {
-                return $this->errorHandler->handleControllerException($e, 'Could not retrieve PGP public key');
-            }
-        }
-
-        return $this->render('default/index.html.twig', [
-            'form' => $form->createView()
-        ]);
-    }
-
-    /**
-     * Generates a token link if the PGP key exists; otherwise adds a flash warning.
-     * Returns a Response if a link was generated, null otherwise.
-     *
-     * Applies IP-based rate limiting before performing a keyserver lookup
-     * to prevent abuse (unlimited outbound network requests).
-     */
-    private function generateLinkResponse(Request $request, string $email): ?Response
-    {
-        $ipKey = $request->getClientIp() ?? 'unknown_ip';
-        $ipLimiter = $this->linkGenerationLimiter->create($ipKey);
-        $ipLimitResult = $ipLimiter->consume();
-        if (!$ipLimitResult->isAccepted()) {
-            $retryAfter = max(1, $ipLimitResult->getRetryAfter()->getTimestamp() - time());
-            $this->addFlash('danger', "Too many link generation requests. Please try again in {$retryAfter} seconds.");
-            return null;
-        }
-
-        try {
-            $keyResult = $this->pgpKeyService->getPgpKeyResult($email);
-        } catch (AppException) {
-            // Apply stricter rate limiting for failed lookups
-            $failedLimiter = $this->linkGenerationFailedLimiter->create($ipKey);
-            $failedLimiter->consume();
-
-            $servers = implode("\n", array_map(
-                fn(string $host) => "https://$host",
-                PgpKeyService::getKeyServerNames()
-            ));
-            $this->addFlash('danger', "No valid PGP public key found for this email address.\nKeys were searched on:\n$servers");
-            return null;
-        }
-
-        $token = $this->linkService->generateLink($email);
-
-        // In stateful mode, register the token for revocation / one-time-use tracking.
-        $expiration = time() + $this->linkService->getExpirationPeriod();
-        $this->tokenStateService->registerToken($token, $expiration);
-
-        return $this->render('default/link.html.twig', [
-            'token' => $token,
-            'keyFingerprint' => $keyResult->fingerprint,
-            'keySource' => $keyResult->source,
-            'keyEmails' => $keyResult->emails,
-            'expirationDays' => (int) ceil($this->linkService->getExpirationPeriod() / 86400),
-        ]);
     }
 
     /**
@@ -138,14 +52,8 @@ class DefaultController extends AbstractController
      * public key.
      * Renders a form allowing the user to submit an encrypted message
      * using the recipient's public key.
-     *
-     * @param string $token The token used to validate and retrieve the recipient's
-     *                      email and PGP public key.
-     *
-     * @return Response Renders the submission page for the encrypted message form
-     *                  or an error message if the token is invalid or expired.
      */
-    #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\\-]++'])]
+    #[Route('/submit/{token}', name: 'app_submit', requirements: ['token' => '[A-Za-z0-9_\\\\-]++'])]
     public function submit(string $token): Response
     {
         try {
@@ -168,8 +76,6 @@ class DefaultController extends AbstractController
             $response->headers->set('Pragma', 'no-cache');
             return $response;
         } catch (Exception $e) {
-            // Log without exception object — stack traces may contain tokens.
-            // The TokenScrubbingProcessor will redact any token strings in the message.
             $this->logger->error('Token validation failed for submission link');
             $this->addFlash('danger', 'This link is invalid or has expired. Ask for a new one. Or use the form below to generate a link');
             return $this->redirectToRoute('app_home');
@@ -179,23 +85,8 @@ class DefaultController extends AbstractController
     /**
      * Handles the submission of a POST request containing the encrypted message,
      * and the recipient's email address.
-     * Signs the message using the server's
-     * private key and sends the signed message to the recipient via email.
-     *
-     * This endpoint is used by the client-side JavaScript to send encrypted
-     * messages to the recipient.
-     * The message is encrypted using the recipient's
-     * public key and is signed using the server's private key.
-     * The signed message
-     * is then sent to the recipient via email.
-     *
-     * @param Request $request The request object containing the encrypted message
-     *                         and the recipient's email address.
-     * @param ValidatorInterface $validator The validator to use for validating
-     *                                      the request data.
-     *
-     * @return Response A JSON response containing the result of the message
-     *                 submission.
+     * Signs the message using the server's private key and sends the signed
+     * message to the recipient via email.
      */
     #[Route('/message/submit', name: 'app_submit_message', methods: ['POST'])]
     public function submitMessage(Request $request, ValidatorInterface $validator): Response
@@ -222,10 +113,6 @@ class DefaultController extends AbstractController
 
     /**
      * Handles errors during message submission: logs the error and returns a JSON response.
-     *
-     * The log message scrubbed by TokenScrubbingProcessor for tokens/emails.
-     * The exception object is not passed as context to prevent stack traces
-     * (which may contain token values) from leaking into log files.
      */
     private function handleSubmissionError(Exception $e): Response
     {
@@ -253,7 +140,6 @@ class DefaultController extends AbstractController
             return $error;
         }
 
-        // Resolve the recipient email from the token, return error if invalid
         $recipientEmail = $this->resolveRecipient($dto->getToken());
         $dto->setRecipientEmail($recipientEmail ?? '');
         if ($recipientEmail === null) {
@@ -304,9 +190,6 @@ class DefaultController extends AbstractController
      * Validates CSRF token, DTO, and rate limits for message submission.
      * Returns an error Response if validation fails, null if valid.
      * On success, sets $dto to the validated MessageSubmitRequest.
-     *
-     * The token-specific rate limiter is consumed ONLY after DTO validation
-     * passes, so malformed/invalid requests do not deplete token buckets.
      */
     private function validateSubmission(Request $request, array $data, ValidatorInterface $validator, ?MessageSubmitRequest &$dto): ?Response
     {
@@ -404,113 +287,11 @@ class DefaultController extends AbstractController
     /**
      * Helper to return a standard error JSON response.
      */
-    private function jsonError(string $error, int $status): Response
+    private function jsonError(string $error, int $status): JsonResponse
     {
         return $this->json([
             'success' => false,
             'error' => $error
         ], $status);
-    }
-
-    /**
-     * Renders the PGP signature verification page.
-     *
-     * This method creates and processes the PgpVerifySignatureForm.
-     * It displays the form to the user for verifying the authenticity
-     * of a PGP signed message.
-     * The form includes fields for the public
-     * key, message, and signature.
-     * Once the form is created, it is
-     * passed to the Twig template for rendering.
-     *
-     * @param Request $request The HTTP request object.
-     *
-     * @return Response The rendered verification page with the form.
-     */
-    #[Route('/verify', name: 'app_verify')]
-    public function verifySignaturePage(): Response
-    {
-        $response = $this->render('default/verify.html.twig', [
-            'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
-        ]);
-        // Prevent caching of the verify page (contains server public key).
-        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-        return $response;
-    }
-
-    /**
-     * Verifies the authenticity of a PGP signed message.
-     *
-     * This method handles the submission of the PgpVerifySignatureForm and
-     * uses the PgpSigningService to verify the authenticity of the message.
-     * It renders the verification result as a flash message and stores the
-     * result in the user's session.
-     *
-     * @param Request $request The HTTP request object.
-     *
-     * @return Response A redirect to the verification page with the result.
-     */
-    #[Route('/verify/signature', name: 'app_verify_signature', methods: ['POST'])]
-    public function verifyIsValidSignature(Request $request): Response
-    {
-        $form = $this->createForm(PgpVerifySignatureFormType::class);
-        $form->handleRequest($request);
-
-        if (!$form->isSubmitted() || !$form->isValid()) {
-            $this->addFlash('danger', 'Invalid form submission. Please check your input.');
-            return $this->redirectToRoute('app_verify');
-        }
-
-        try {
-            $data = $form->getData();
-            $isValid = $this->pgpSigningService->verifySignature(
-                $data['signed_message'],
-                $data['public_key']
-            );
-
-            if ($isValid) {
-                $this->addFlash('success', 'Signature verification successful! The message is authentic.');
-            } else {
-                $this->addFlash('danger', 'Signature verification failed! The message may have been tampered with.');
-            }
-
-            $request->getSession()->set('last_verification_result', $isValid);
-        } catch (Exception $e) {
-            $this->logger->error('Signature verification error', ['exception_class' => get_class($e)]);
-            $this->addFlash('danger', 'Error during verification. Please check your inputs and try again.');
-        }
-
-        return $this->redirectToRoute('app_verify');
-    }
-
-    #[Route('/about', name: 'app_about')]
-    public function about(): Response
-    {
-        return $this->render('default/about.html.twig');
-    }
-
-    #[Route('/privacy', name: 'app_privacy')]
-    public function privacy(): Response
-    {
-        return $this->render('default/privacy.html.twig');
-    }
-
-    /**
-     * Returns the server's public key as an HTTP response, allowing the user to download it.
-     *
-     * This endpoint is used to provide the server's public key to users who want to verify
-     * the authenticity of the messages sent by the server.
-     *
-     * @return Response An HTTP response containing the server's public key.
-     * @throws AppException
-     */
-    #[Route('/server-key', name: 'app_server_key_download')]
-    public function downloadServerPublicKey(): Response
-    {
-        $publicKey = $this->pgpSigningService->getServerPublicKey();
-        $response = new Response($publicKey);
-        $response->headers->set('Content-Type', 'text/plain');
-        $response->headers->set('Content-Disposition', 'attachment; filename="server-public-key.asc"');
-        return $response;
     }
 }
