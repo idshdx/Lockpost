@@ -411,7 +411,7 @@ class DefaultController extends AbstractController
      * @return Response The rendered verification page with the form.
      */
     #[Route('/verify', name: 'app_verify')]
-    public function verifySignaturePage(Request $request): Response
+    public function verifySignaturePage(): Response
     {
         $response = $this->render('default/verify.html.twig', [
             'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
