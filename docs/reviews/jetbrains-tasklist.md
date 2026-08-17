@@ -424,7 +424,7 @@ Acceptance Criteria:
 
 ### 14. Upgrade PHPUnit If Feasible
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Testing / Maintenance  
 Files:
 
@@ -437,10 +437,10 @@ Project uses PHPUnit `^9.5` with PHP 8.3.
 
 Tasks:
 
-- [ ] Check compatibility with Symfony PHPUnit Bridge.
-- [ ] Upgrade to PHPUnit 10 or 11 if practical.
-- [ ] Update test annotations/attributes as needed.
-- [ ] Run full test suite.
+- [x] Check compatibility with Symfony PHPUnit Bridge.
+- [x] Upgrade to PHPUnit 10 or 11 if practical.
+- [x] Update test annotations/attributes as needed.
+- [x] Run full test suite.
 
 Acceptance Criteria:
 
@@ -476,7 +476,7 @@ Acceptance Criteria:
 
 ### 16. Review and Harden Frontend Encryption Flow
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Frontend / Security  
 Files:
 
@@ -486,15 +486,15 @@ Files:
 
 Tasks:
 
-- [ ] Confirm plaintext is never sent to backend.
-- [ ] Confirm plaintext is not logged to console.
-- [ ] Clear plaintext after successful send.
-- [ ] Disable submit button while encrypting/sending.
-- [ ] Display public key fingerprint.
-- [ ] Display key source.
-- [ ] Handle encryption errors clearly.
-- [ ] Confirm OpenPGP.js is pinned.
-- [ ] Confirm no third-party tracking scripts exist.
+- [x] Confirm plaintext is never sent to backend.
+- [x] Confirm plaintext is not logged to console.
+- [x] Clear plaintext after successful send.
+- [x] Disable submit button while encrypting/sending.
+- [x] Display public key fingerprint.
+- [x] Display key source.
+- [x] Handle encryption errors clearly.
+- [x] Confirm OpenPGP.js is pinned.
+- [x] Confirm no third-party tracking scripts exist.
 
 Acceptance Criteria:
 
