@@ -589,7 +589,7 @@ Acceptance Criteria:
 
 ### 20. Lower Log Level for Invalid Links
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Logging  
 Files:
 
@@ -601,9 +601,9 @@ Invalid/expired links are logged as errors.
 
 Tasks:
 
-- [ ] Change log level from `error` to `notice` or `warning`.
-- [ ] Ensure raw token is not logged.
-- [ ] Keep reason message generic if needed.
+- [x] Change log level from `error` to `notice` or `warning`.
+- [x] Ensure raw token is not logged.
+- [x] Keep reason message generic if needed.
 
 Acceptance Criteria:
 
