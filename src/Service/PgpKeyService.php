@@ -201,6 +201,7 @@ class PgpKeyService
         $query = http_build_query([
             'op'    => 'get',
             'search' => $email,
+            'mr'    => '1',
         ]);
 
         return "$server/pks/lookup?$query";

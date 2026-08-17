@@ -375,7 +375,13 @@ class PgpSigningService
      */
     private function setGpgHome(string $homePath): void
     {
+        // Set GNUPGHOME across all env superglobals for maximum compatibility:
+        // - putenv() affects getenv() and child processes (exec, system, etc.)
+        // - $_ENV affects some SAPIs and CLI environments
+        // - $_SERVER is used by some configurations
         putenv("GNUPGHOME={$homePath}");
+        $_ENV['GNUPGHOME'] = $homePath;
+        $_SERVER['GNUPGHOME'] = $homePath;
     }
 
     /**
@@ -388,7 +394,14 @@ class PgpSigningService
     private function restoreGpgHome(string|false $originalValue): void
     {
         if ($originalValue === false) {
+            // Clear GNUPGHOME so child processes and the gnupg extension
+            // fall back to the default ~/.gnupg location.
             putenv('GNUPGHOME');
+            putenv('GNUPGHOME=');
+            $_ENV['GNUPGHOME'] = null;
+            unset($_ENV['GNUPGHOME']);
+            $_SERVER['GNUPGHOME'] = null;
+            unset($_SERVER['GNUPGHOME']);
         } else {
             putenv("GNUPGHOME={$originalValue}");
         }
