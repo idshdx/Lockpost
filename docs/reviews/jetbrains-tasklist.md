@@ -613,7 +613,7 @@ Acceptance Criteria:
 
 ### 21. Remove Unused Parameters and Imports
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Code Cleanup  
 Files:
 
@@ -621,9 +621,9 @@ Files:
 
 Tasks:
 
-- [ ] Remove unused `Request $request` from `verifySignaturePage()` if unused.
-- [ ] Remove unused imports.
-- [ ] Run static analysis.
+- [x] Remove unused `Request $request` from `verifySignaturePage()` if unused.
+- [x] Remove unused imports.
+- [x] Run static analysis.
 
 Acceptance Criteria:
 
@@ -633,7 +633,7 @@ Acceptance Criteria:
 
 ### 22. Fix Minor Comment/Formatting Issues
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Code Style  
 Files:
 
@@ -642,14 +642,10 @@ Files:
 
 Tasks:
 
-- [ ] Fix missing closing parenthesis in comment:
-```
-php
-// Rate limiting by submission token (prevent flooding of a single valid token
-```
-- [ ] Normalize constructor formatting.
-- [ ] Ensure comments match behavior.
-- [ ] Run PHP CS fixer or project formatter.
+- [x] Fix missing closing parenthesis in comment — was already resolved in earlier commits
+- [x] Normalize constructor formatting — constructor was already properly formatted, fixed literal \n from earlier patch
+- [x] Ensure comments match behavior — docblocks updated across Tasks 4-10
+- [x] Run PHP CS fixer or project formatter — PHP CS Fixer not available; manual review done
 
 Acceptance Criteria:
 
