@@ -33,7 +33,8 @@ RUN docker-php-ext-install \
     intl \
     opcache \
     sockets \
-    zip
+    zip && \
+    docker-php-ext-enable opcache
 
 # Install Composer (using official image — avoids insecure curl|php pipeline)
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
