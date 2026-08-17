@@ -76,7 +76,7 @@ class MessageController extends AbstractController
             $response->headers->set('Pragma', 'no-cache');
             return $response;
         } catch (Exception $e) {
-            $this->logger->error('Token validation failed for submission link');
+            $this->logger->notice('Token validation failed for submission link');
             $this->addFlash('danger', 'This link is invalid or has expired. Ask for a new one. Or use the form below to generate a link');
             return $this->redirectToRoute('app_home');
         }
