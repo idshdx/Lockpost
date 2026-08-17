@@ -56,10 +56,9 @@
     },
     "sort-packages": true,
     "platform": {
-      "php": "8.3",
-      "ext-opcache": "8.3"
+      "php": "8.3"
     },
-    "platform-check": false
+    "platform-check": true
   },
   "autoload": {
     "psr-4": {
