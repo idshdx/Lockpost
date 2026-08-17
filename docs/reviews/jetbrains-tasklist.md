@@ -505,7 +505,7 @@ Acceptance Criteria:
 
 ### 17. Add Optional Stateful Link Mode
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Architecture / Security  
 Files:
 
@@ -520,12 +520,12 @@ Stateless links cannot be revoked or made one-time-use.
 
 Tasks:
 
-- [ ] Decide whether production mode should support token nonce storage.
-- [ ] Store only nonce/token hash, not messages.
-- [ ] Support revocation.
-- [ ] Support one-time use or max submissions.
-- [ ] Keep stateless mode available if desired.
-- [ ] Document trade-offs.
+- [x] Decide whether production mode should support token nonce storage.
+- [x] Store only nonce/token hash, not messages.
+- [x] Support revocation.
+- [x] Support one-time use or max submissions.
+- [x] Keep stateless mode available if desired.
+- [x] Document trade-offs.
 
 Acceptance Criteria:
 
@@ -537,7 +537,7 @@ Acceptance Criteria:
 
 ### 18. Split `DefaultController`
 
-Status: `TODO`  
+Status: `DONE`  
 Area: Code Organization  
 Files:
 
@@ -547,12 +547,12 @@ Files:
 
 Tasks:
 
-- [ ] Create `LinkController`.
-- [ ] Create `MessageController`.
-- [ ] Create `VerificationController`.
-- [ ] Create `StaticPageController`.
-- [ ] Move methods without changing route names.
-- [ ] Run route/debug checks.
+- [x] Create `LinkController`.
+- [x] Create `MessageController`.
+- [x] Create `VerificationController`.
+- [x] Create `StaticPageController`.
+- [x] Move methods without changing route names.
+- [x] Run route/debug checks.
 - [ ] Run tests.
 
 Acceptance Criteria:
