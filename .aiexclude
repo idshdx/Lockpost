@@ -1,0 +1,45 @@
+# .aiexclude — keep AI coding tools (and agents) from ingesting internal/noise files.
+# Mirrors .gitignore intent but for AI context windows. One glob per line.
+
+# Agent tooling / internal workflow (intentional project skills, not product code)
+.agents/
+.bmad/
+_bmad-output/
+.bmad-loop/
+.hermes/
+
+# Dependencies, build artifacts, runtime data
+/vendor/
+/node_modules/
+/var/
+/assets/vendor/
+/public/bundles/
+/public/assets/
+
+# Local env + secrets
+/.env.local
+/.env.local.php
+/.env.*.local
+/.env
+.env.production.example
+
+# Tests + CI internals (not user-facing product surface)
+/tests/
+/.github/
+
+# IDE / editor / OS noise
+.idea/
+.vscode/
+.fleet/
+.DS_Store
+.cache
+*.code-workspace
+
+# Archived historical reviews (safekept on archive/docs-old branch)
+docs/reviews/old/
+
+# Debug scratch files (untracked in working tree)
+debug_*.php
+scripts/boot-timing.php
+scripts/diagnose-boot.php
+scripts/diagnose-boot.sh
