@@ -589,7 +589,7 @@ Acceptance Criteria:
 
 ### 20. Lower Log Level for Invalid Links
 
-Status: `DONE`  
+Status: `TODO`  
 Area: Logging  
 Files:
 
@@ -601,9 +601,9 @@ Invalid/expired links are logged as errors.
 
 Tasks:
 
-- [x] Change log level from `error` to `notice` or `warning`.
-- [x] Ensure raw token is not logged.
-- [x] Keep reason message generic if needed.
+- [ ] Change log level from `error` to `notice` or `warning`.
+- [ ] Ensure raw token is not logged.
+- [ ] Keep reason message generic if needed.
 
 Acceptance Criteria:
 
@@ -739,14 +739,14 @@ Files:
 
 Tasks:
 
-- [x] State that server processes recipient email.
-- [x] State that server sees sender IP.
-- [x] State that encrypted message transits server.
-- [x] State whether verification is browser-only or server-side.
-- [x] State that no plaintext should be sent to server.
-- [x] State token/link reuse behavior.
-- [x] State token expiry behavior.
-- [x] State operational log considerations.
+- [ ] State that server processes recipient email.
+- [ ] State that server sees sender IP.
+- [ ] State that encrypted message transits server.
+- [ ] State whether verification is browser-only or server-side.
+- [ ] State that no plaintext should be sent to server.
+- [ ] State token/link reuse behavior.
+- [ ] State token expiry behavior.
+- [ ] State operational log considerations.
 
 ---
 

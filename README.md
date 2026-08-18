@@ -239,6 +239,21 @@ config/pgp/
 
 ---
 
+## Production Hardening
+
+For production deployment, see the [Production Hardening Guide](docs/production-hardening.md) covering:
+
+- Required environment variables and `APP_SECRET` generation
+- PGP private key permissions and backup/rotation
+- TLS/HSTS configuration
+- Access log token scrubbing
+- Rate limiter storage (shared backend for multi-worker setups)
+- Mailer TLS requirements
+- Container security best practices
+- File permissions and `APP_DEBUG=0`
+
+---
+
 ## Project History
 
 Lockpost started as a project for *Advanced Programming Techniques* TAP, originally made at [gitlab.com/zer0lis/sym-pgp-ony](https://gitlab.com/zer0lis/sym-pgp-ony)
