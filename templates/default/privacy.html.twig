@@ -15,22 +15,44 @@
 
         <section aria-labelledby="email-usage-heading" class="mb-5">
             <h2 id="email-usage-heading">How your email address is used</h2>
-            <p>When you enter your email address on the home page, it is used for two purposes only:</p>
+            <p>When you enter your email address on the home page, the server uses it for two purposes only:</p>
             <ol>
-                <li>To look up your PGP public key on a public key server, so that messages can be encrypted for you.</li>
-                <li>To deliver the encrypted message to your inbox.</li>
+                <li>To look up your PGP public key on a public key server (<code>keys.openpgp.org</code>), so that messages can be encrypted for you.</li>
+                <li>To deliver the encrypted message to your inbox via the server's mail transport (SMTP).</li>
             </ol>
-            <p>Your email address is not stored, logged, or used for any other purpose. It is not added to any mailing list and is not shared with third parties.</p>
+            <p>Your email address is not stored in any database, is not logged with personally identifying context, and is not used for any other purpose. It is not added to any mailing list and is not shared with third parties. The email address is held in memory only for the duration of the request.</p>
+        </section>
+
+        <section aria-labelledby="sender-ip-heading" class="mb-5">
+            <h2 id="sender-ip-heading">Sender IP addresses</h2>
+            <p>When someone submits a message through your secure link, the server sees their IP address. This IP address is used solely for rate limiting to prevent abuse (spam or denial-of-service attacks). IP addresses are not logged with message content and are not retained beyond the active rate-limit window.</p>
+        </section>
+
+        <section aria-labelledby="encryption-heading" class="mb-5">
+            <h2 id="encryption-heading">Browser-side encryption</h2>
+            <p>The message is encrypted <strong>in the sender's browser</strong> using your PGP public key before it is sent. The server never sees the plaintext message — only the encrypted ciphertext is transmitted over the network and forwarded to your inbox. Encryption is performed by <a href="https://openpgpjs.org/" target="_blank" rel="noopener">OpenPGP.js</a> running entirely client-side.</p>
+            <p><strong>Never send plaintext to the server.</strong> The submit form encrypts the message client-side before it leaves your browser. The server's <code>/message/submit</code> endpoint only ever receives ciphertext.</p>
+        </section>
+
+        <section aria-labelledby="verification-heading" class="mb-5">
+            <h2 id="verification-heading">Message verification</h2>
+            <p>Your messages are signed with the server's private PGP key. Signature verification is performed <strong>client-side</strong> — either in your browser via OpenPGP.js, or locally using GnuPG on your computer. The server does not verify signatures; it only stores and forwards encrypted, signed messages.</p>
         </section>
 
         <section aria-labelledby="token-heading" class="mb-5">
             <h2 id="token-heading">Tokenised links</h2>
-            <p>The shareable link generated for you encodes your email address inside an encrypted, time-limited token. The token is encrypted using AES-256-CBC and expires after 30 days.It is not logged, and the server does not retain any record of links that have been generated or used.</p>
+            <p>The shareable link generated for you encodes your email address inside an encrypted, time-limited token. By default, tokens use XChaCha20-Poly1305 IETF encryption (256-bit) and expire after <strong>7 days</strong> (configurable via the <code>APP_TOKEN_TTL</code> environment variable). Tokens are encrypted and signed — the server cannot read or modify the contents without the <code>APP_SECRET</code>.</p>
+            <p>By default, links are <strong>stateless</strong> — the server does not retain any record of links that have been generated or used. An optional <strong>stateful mode</strong> (<code>APP_TOKEN_STATEFUL=1</code>) tracks token hashes in a file store to support revocation, one-time-use links, and maximum submission limits. Even in stateful mode, only SHA-256 hashes of tokens are stored — never the tokens themselves, messages, or plaintext.</p>
         </section>
 
         <section aria-labelledby="no-storage-heading" class="mb-5">
             <h2 id="no-storage-heading">No server-side message storage</h2>
             <p>Messages are never stored on our servers. When a recipient submits a message through your secure link, it is encrypted in their browser before it is sent. The server forwards the encrypted message to your inbox and immediately discards it. There is no database of messages, no archive, and nothing to breach.</p>
+        </section>
+
+        <section aria-labelledby="log-heading" class="mb-5">
+            <h2 id="log-heading">Operational logs</h2>
+            <p>Lockpost maintains operational logs for security monitoring and debugging. These logs <strong>never contain</strong> plaintext messages, token values, or complete email addresses. Token-like strings are automatically redacted by the <code>TokenScrubbingProcessor</code>. Invalid or expired link attempts are logged at <code>notice</code> level (not <code>error</code>) to avoid polluting error logs with expected user behavior. Log retention is determined by your hosting environment's configuration.</p>
         </section>
 
     </div>

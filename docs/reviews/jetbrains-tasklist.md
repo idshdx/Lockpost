@@ -739,14 +739,14 @@ Files:
 
 Tasks:
 
-- [ ] State that server processes recipient email.
-- [ ] State that server sees sender IP.
-- [ ] State that encrypted message transits server.
-- [ ] State whether verification is browser-only or server-side.
-- [ ] State that no plaintext should be sent to server.
-- [ ] State token/link reuse behavior.
-- [ ] State token expiry behavior.
-- [ ] State operational log considerations.
+- [x] State that server processes recipient email.
+- [x] State that server sees sender IP.
+- [x] State that encrypted message transits server.
+- [x] State whether verification is browser-only or server-side.
+- [x] State that no plaintext should be sent to server.
+- [x] State token/link reuse behavior.
+- [x] State token expiry behavior.
+- [x] State operational log considerations.
 
 ---
 
