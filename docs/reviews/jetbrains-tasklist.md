@@ -730,7 +730,7 @@ Tasks:
 
 ### 26. Update Privacy Documentation
 
-Status: `TODO`  
+Status: `DONE`  \
 Priority: `P1`  
 Files:
 
@@ -752,7 +752,7 @@ Tasks:
 
 ### 27. Add Production Hardening Guide
 
-Status: `TODO`  
+Status: `DONE`  \
 Priority: `P2`  
 Files:
 
