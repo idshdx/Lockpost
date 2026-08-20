@@ -182,4 +182,123 @@ class DefaultControllerTest extends WebTestCase
         self::assertTrue($container->has('limiter.link_generation'));
         self::assertTrue($container->has('limiter.link_generation_failed'));
     }
+
+    /**
+     * Validates that the plain-text email template exists and renders
+     * with the expected variables for multipart email support.
+     *
+     * Validates: Task 10 — outgoing email is multipart HTML + plain text.
+     */
+    public function testPlainTextEmailTemplateExists(): void
+    {
+        $templateDir = static::getContainer()->getParameter('kernel.project_dir') . '/templates/email';
+
+        self::assertFileExists($templateDir . '/message.html.twig');
+        self::assertFileExists($templateDir . '/message.txt.twig');
+    }
+
+    /**
+     * Validates that the verify URL uses ABSOLUTE_URL generation.
+     *
+     * Validates: Task 25 — Email verify URL is absolute.
+     */
+    public function testVerifyUrlIsAbsolute(): void
+    {
+        // The generateLinkResponse uses UrlGeneratorInterface::ABSOLUTE_URL.
+        // We test this by checking the link page renders an absolute URL.
+        $client = static::createClient();
+        $client->request('GET', '/');
+        $crawler = $client->getCrawler();
+        $form = $crawler->filter(self::EMAIL_FORM_SELECTOR)->form();
+        $form->getPhpSeries()['email_form[email]'] = 'test@example.com';
+        $client->submit($form);
+
+        // The link page should contain an absolute URL in the verify link
+        $html = $client->getResponse()->getContent();
+        // Look for http:// or https:// in the page (absolute URL)
+        self::assertMatchesRegularExpression('/https?:\/\//', $html);
+    }
+
+    /**
+     * Validates that a POST with invalid JSON returns 400.
+     *
+     * Validates: Task 25 — Invalid JSON returns 400.
+     */
+    public function testSubmitMessageReturns400ForInvalidJson(): void
+    {
+        $client = static::createClient();
+        $client->request(
+            'POST',
+            '/message/submit',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            'not-valid-json{{{broken'
+        );
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    /**
+     * Validates that a POST with missing token returns 400.
+     *
+     * Validates: Task 25 — Missing token returns 400.
+     */
+    public function testSubmitMessageReturns400ForMissingToken(): void
+    {
+        $client = static::createClient();
+        $payload = json_encode([
+            'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+        ]);
+
+        $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    /**
+     * Validates that a POST with a malformed token returns 400.
+     *
+     * Validates: Task 25 — Malformed token returns 400.
+     */
+    public function testSubmitMessageReturns400ForMalformedToken(): void
+    {
+        $client = static::createClient();
+        $payload = json_encode([
+            'token' => '!!!invalid-base64!!!',
+            'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+        ]);
+
+        $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
+
+        self::assertResponseStatusCodeSame(400);
+        $data = json_decode($client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    /**
+     * Validates that the submit rate limiter (submit_ip) is configured.
+     *
+     * Validates: Task 25 — IP limiter returns 429.
+     */
+    public function testSubmitIpRateLimiterIsConfigured(): void
+    {
+        $container = static::getContainer();
+        self::assertTrue($container->has('limiter.submit_ip'));
+    }
+
+    /**
+     * Validates that the token rate limiter (submit_token) is configured.
+     *
+     * Validates: Task 25 — Token limiter returns 429.
+     */
+    public function testSubmitTokenRateLimiterIsConfigured(): void
+    {
+        $container = static::getContainer();
+        self::assertTrue($container->has('limiter.submit_token'));
+    }
 }

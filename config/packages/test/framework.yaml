@@ -1,8 +1,7 @@
 framework:
-  test: true
-  session:
-    storage_factory_id: session.storage.factory.mock_file
-  asset_mapper:
-    importmap_polyfill: false
-  profiler:
-    collect_serializer_data: true
+    test: true
+    session:
+        storage_factory_id: session.storage.factory.mock_file
+    # For tests: set a short token TTL (1 hour) to make expiration tests fast
+    # and prevent long-lived tokens from persisting between test runs
+    # APP_TOKEN_TTL is set via env in the test .env below

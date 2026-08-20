@@ -57,7 +57,7 @@ Paste the signed message and the server's public key into the Verify page to con
 - No message storage — fully stateless, zero persistence
 - No tracking or cookies
 - Client-side encryption only (OpenPGP.js)
-- Stateless tokens using AES-256-CBC + HMAC-SHA256 (30-day expiry)
+- Stateless tokens using AES-256-CBC + HMAC-SHA256 (configurable TTL, default 7 days)
 - Server signs outgoing messages with its own PGP key
 
 ---
@@ -74,7 +74,7 @@ cd sym-pgp-ony
 cp .env.example .env
 ```
 
-The defaults in `.env.example` work for local Docker dev. The only value you may want to change is `APP_SECRET` — set it to any random string.
+The defaults in `.env.example` work for local Docker dev. The only value you may want to change is `APP_SECRET` — set it to a random string of at least 32 bytes (e.g. from `openssl rand -hex 32`).
 
 ### 2. Start containers
 
@@ -82,7 +82,7 @@ The defaults in `.env.example` work for local Docker dev. The only value you may
 docker compose up --build -d
 ```
 
-This starts three containers: `php` (PHP 8.3-FPM with Xdebug), `nginx` (reverse proxy on port **8080**), and `mailhog` (local mail catcher on port 8025).
+This starts three containers: `php` (PHP 8.4-FPM with Xdebug), `nginx` (reverse proxy on port **8080**), and `mailhog` (local mail catcher on port 8025).
 
 > **Note on ports:** If port 80 is already in use by another service (e.g. YunoHost), the app is available at **http://localhost:8080**. If port 80 is free, you can change the port mapping in `docker-compose.yml` from `"8080:80"` to `"80:80"`.
 
@@ -152,6 +152,7 @@ Defined in `.env` (copy from `.env.example`):
 | `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
 | `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `sync://` |
 | `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. Required in production. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty for local dev |
+| `APP_TOKEN_TTL` | Token link expiration in seconds. Default: `604800` (7 days). Set to `86400` (24 hours) for maximum security, or `2592000` (30 days) to match the old default. |
 
 ---
 
@@ -219,10 +220,10 @@ docker compose down
 
 ### Tech stack
 
-- **Backend:** PHP 8.3, Symfony 7.1
+- **Backend:** PHP 8.4, Symfony 7.4
 - **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
 - **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
-- **Testing:** PHPUnit 9.5
+- **Testing:** PHPUnit 11
 
 ### PGP key storage
 
@@ -235,6 +236,21 @@ config/pgp/
   key-config/       # GnuPG home directory
     gpg.conf        # GPG config (pinentry-mode loopback, no-protection)
 ```
+
+---
+
+## Production Hardening
+
+For production deployment, see the [Production Hardening Guide](docs/production-hardening.md) covering:
+
+- Required environment variables and `APP_SECRET` generation
+- PGP private key permissions and backup/rotation
+- TLS/HSTS configuration
+- Access log token scrubbing
+- Rate limiter storage (shared backend for multi-worker setups)
+- Mailer TLS requirements
+- Container security best practices
+- File permissions and `APP_DEBUG=0`
 
 ---
 

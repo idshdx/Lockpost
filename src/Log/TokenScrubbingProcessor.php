@@ -2,7 +2,8 @@
 
 namespace App\Log;
 
-use Monolog\LogRecord;
+use Monolog\\LogRecord;
+use Monolog\\Processor\\ProcessorInterface;
 
 /**
  * Scrubs PGP token strings from log messages and context.
@@ -16,7 +17,7 @@ use Monolog\LogRecord;
  * - Long base64url-style strings (potential tokens)
  * - Email addresses in log context
  */
-class TokenScrubbingProcessor
+class TokenScrubbingProcessor implements ProcessorInterface
 {
     public function __invoke(LogRecord $record): LogRecord
     {

@@ -9,6 +9,7 @@ parameters:
     app.pgp.private_key_passphrase: '%env(PGP_PRIVATE_KEY_PASSPHRASE)%'
     app.pgp.key_config_path: '%kernel.project_dir%/config/pgp/key-config'
     app.pgp.public_key_path: '%kernel.project_dir%/config/pgp/public.key'
+    app.token_ttl: '%env(int:APP_TOKEN_TTL)%'  # Token link expiration in seconds
 
 services:
     # default configuration for services in *this* file
@@ -30,6 +31,7 @@ services:
     App\Service\TokenLinkService:
         arguments:
             $appSecret: '%env(APP_SECRET)%'
+            $expirationPeriod: '%app.token_ttl%'
 
     App\Service\PgpSigningService:
         arguments:
@@ -38,3 +40,8 @@ services:
             $keyConfigPath: '%app.pgp.key_config_path%'
             $publicKeyPath: '%app.pgp.public_key_path%'
             $appEnv: '%kernel.environment%'
+
+    App\Service\TokenStateService:
+        arguments:
+            $enabled: '%env(bool:APP_TOKEN_STATEFUL)%'
+            $stateFile: '%kernel.project_dir%/var/data/tokens.json'

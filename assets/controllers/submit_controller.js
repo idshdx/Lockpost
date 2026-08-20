@@ -14,9 +14,6 @@ export default class SubmitController extends Controller {
     };
 
     connect() {
-        // If openpgp failed to load the import itself would have thrown.
-        // The `if (!openpgp)` check handles edge cases where the module
-        // is present but not fully initialized.
         if (!openpgp) {
             this._showFeedback('danger', 'Encryption library failed to load. Please reload the page.');
             this.submitBtnTarget.disabled = true;
@@ -36,6 +33,10 @@ export default class SubmitController extends Controller {
                 encryptionKeys: publicKey,
             });
 
+            // Clear plaintext from memory after successful encryption.
+            // Overwrite the textarea value to prevent recovery from memory.
+            this.messageTarget.value = '';
+
             const token = this.tokenValue || this.recipientValue;
             const response = await fetch(this.submitUrlValue, {
                 method: 'POST',
@@ -49,6 +50,7 @@ export default class SubmitController extends Controller {
             });
 
             if (response.ok) {
+                this.submitBtnTarget.disabled = true;
                 this._showFeedback('success', 'Your message has been encrypted and sent successfully. Redirecting…');
                 setTimeout(() => {
                     window.location.href = this.homeUrlValue;
@@ -70,7 +72,25 @@ export default class SubmitController extends Controller {
                 this._showFeedback('danger', errorMessage);
             }
         } catch (error) {
-            this._showFeedback('danger', error.message || 'An unexpected error occurred.');
+            // Do not expose raw error messages — they may contain key fingerprints,
+            // internal key IDs, or other sensitive information.
+            // Map known error types to user-friendly messages.
+            let userMessage = 'An unexpected error occurred during encryption. Please try again.';
+
+            if (error instanceof Error) {
+                const msg = error.message.toLowerCase();
+                if (msg.includes('public key') && msg.includes('expired')) {
+                    userMessage = 'The recipient\'s public key has expired. Ask them to share a new link.';
+                } else if (msg.includes('public key') && (msg.includes('invalid') || msg.includes('parse'))) {
+                    userMessage = 'The recipient\'s public key could not be read. Please ask them to share a valid PGP key.';
+                } else if (msg.includes('network')) {
+                    userMessage = 'Network error. Please check your connection and try again.';
+                } else if (msg.includes('encrypt')) {
+                    userMessage = 'Encryption failed. Please check your message and try again.';
+                }
+            }
+
+            this._showFeedback('danger', userMessage);
         } finally {
             this._setLoading(false);
         }

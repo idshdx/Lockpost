@@ -14,9 +14,10 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Referrer-Policy "no-referrer" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
-    add_header Strict-Transport-Security "max-age=0" always;
+    # HSTS — only effective when served over HTTPS (port 443 in docker-compose.prod.yml)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
     access_log off;
     error_log /dev/stdout info;
@@ -79,11 +80,17 @@ server {
     # Prevent token strings from leaking into access logs
     location ~ ^/submit/ {
         access_log off;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
         try_files $uri $uri/ /index.php?_url=$uri&$args;
     }
     location ~ ^/message/submit {
         access_log off;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
         try_files $uri $uri/ /index.php?_url=$uri&$args;
+    }
+    # Prevent caching of the verify page (contains server public key)
+    location = /verify {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
     }
 
     location /nginx_status {

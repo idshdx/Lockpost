@@ -1,13 +1,13 @@
 ARG APP_ENV=dev
 
 # ─── Builder Stage ───
-# The php:8.3-fpm image runs as root by design. PHP-FPM's master process needs
+# The php:8.4-fpm image runs as root by design. PHP-FPM's master process needs
 # root to bind ports and manage worker processes; it drops privileges to
 # www-data for worker pools via the 'user' directive in www.conf.
 # The entrypoint.sh handles runtime permission fixing before starting PHP-FPM,
 # ensuring the container is not left running with unnecessary privileges in
 # a writable state. This is the standard Docker PHP-FPM security pattern.
-FROM php:8.3-fpm AS builder
+FROM php:8.4-fpm AS builder
 
 # Install build dependencies
 RUN apt-get -qq update && apt-get -qq -y --no-install-recommends install \
@@ -33,7 +33,8 @@ RUN docker-php-ext-install \
     intl \
     opcache \
     sockets \
-    zip
+    zip && \
+    docker-php-ext-enable opcache
 
 # Install Composer (using official image — avoids insecure curl|php pipeline)
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
@@ -51,7 +52,7 @@ COPY conf.d/gnupg.ini /usr/local/etc/php/conf.d/gnupg.ini
 COPY conf.d/realpath_cache.ini /usr/local/etc/php/conf.d/realpath_cache.ini
 
 # ─── Final Stage (Production) ───
-FROM php:8.3-fpm AS final
+FROM php:8.4-fpm AS final
 
 # Copy PHP extensions and configurations from builder
 COPY --from=builder /usr/local/lib/php/extensions /usr/local/lib/php/extensions
