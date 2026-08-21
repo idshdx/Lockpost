@@ -156,7 +156,7 @@ class MessageController extends AbstractController
     {
         try {
             $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Exception) {
+        } catch (\Throwable) {
             return null;
         }
 

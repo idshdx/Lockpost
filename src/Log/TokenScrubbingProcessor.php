@@ -2,8 +2,8 @@
 
 namespace App\Log;
 
-use Monolog\\LogRecord;
-use Monolog\\Processor\\ProcessorInterface;
+use Monolog\LogRecord;
+use Monolog\Processor\ProcessorInterface;
 
 /**
  * Scrubs PGP token strings from log messages and context.
@@ -32,14 +32,8 @@ class TokenScrubbingProcessor implements ProcessorInterface
             }
         }
 
-        // Monolog 3.x LogRecord is readonly → create a copy with scrubbed fields.
-        return new LogRecord(
-            datetime: $record->datetime,
-            channel: $record->channel,
-            level: $record->level,
-            message: $message,
-            context: $context,
-        );
+        // Monolog 3.x LogRecord is readonly → use with() to create a copy.
+        return $record->with(message: $message, context: $context);
     }
 
     /**

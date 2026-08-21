@@ -37,7 +37,7 @@ class NavigationTest extends WebTestCase
         );
     }
 
-    public function navRouteProvider(): array
+    public static function navRouteProvider(): array
     {
         return [
             ['/', 'Generate'],
