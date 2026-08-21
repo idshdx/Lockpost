@@ -76,15 +76,17 @@ WORKDIR /var/www/app
 
 # Set up GPG directories with proper permissions, pre-create var/ dirs.
 # All RUN instructions are merged into one for fewer image layers.
-RUN mkdir -p /var/www/app/config/pgp/{key-config,private-keys-v1.d,openpgp-revocs.d} && \
-    mkdir -p /var/www/app/var/cache /var/www/app/var/log && \
-    chmod -R 700 /var/www/app/config/pgp/key-config && \
-    chown -R www-data:www-data /var/www/app/config/pgp /var/www/app/var && \
-    echo "use-agent" > /var/www/app/config/pgp/key-config/gpg.conf && \
-    echo "pinentry-mode loopback" >> /var/www/app/config/pgp/key-config/gpg.conf && \
-    echo "no-emit-version" >> /var/www/app/config/pgp/key-config/gpg.conf && \
-    echo "no-comments" >> /var/www/app/config/pgp/key-config/gpg.conf && \
-    echo "export-options export-minimal" >> /var/www/app/config/pgp/key-config/gpg.conf
+RUN mkdir -p /var/www/app/config/pgp/key-config \
+    && mkdir -p /var/www/app/config/pgp/private-keys-v1.d \
+    && mkdir -p /var/www/app/config/pgp/openpgp-revocs.d \
+    && mkdir -p /var/www/app/var/cache /var/www/app/var/log \
+    && chmod -R 700 /var/www/app/config/pgp/key-config \
+    && chown -R www-data:www-data /var/www/app/config/pgp /var/www/app/var \
+    && echo "use-agent" > /var/www/app/config/pgp/key-config/gpg.conf \
+    && echo "pinentry-mode loopback" >> /var/www/app/config/pgp/key-config/gpg.conf \
+    && echo "no-emit-version" >> /var/www/app/config/pgp/key-config/gpg.conf \
+    && echo "no-comments" >> /var/www/app/config/pgp/key-config/gpg.conf \
+    && echo "export-options export-minimal" >> /var/www/app/config/pgp/key-config/gpg.conf
 
 # Entrypoint: fixes var/ and config/pgp/ ownership before PHP-FPM starts.
 # PHP-FPM's master process runs as root (required for port binding / signal handling)
