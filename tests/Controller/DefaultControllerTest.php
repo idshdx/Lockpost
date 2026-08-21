@@ -210,7 +210,7 @@ class DefaultControllerTest extends WebTestCase
         $client->request('GET', '/');
         $crawler = $client->getCrawler();
         $form = $crawler->filter(self::EMAIL_FORM_SELECTOR)->form();
-        $form->getPhpSeries()['email_form[email]'] = 'test@example.com';
+        $form["email_form[email]"] = "test@example.com";
         $client->submit($form);
 
         // The link page should contain an absolute URL in the verify link
