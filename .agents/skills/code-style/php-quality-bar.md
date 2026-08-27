@@ -110,6 +110,7 @@ Both must be consumed before processing; return HTTP 429 with `Retry-After` head
 - `TokenLinkServiceTest` covers: roundtrip, case-insensitive email, tamper detection, expired token, garbage token.
 - **PHPUnit 12 metadata**: Use PHP 8 attributes (`#[DataProvider('method')]`, `#[Test]`, etc.) — PHPUnit 12 dropped support for annotation-based metadata (`@dataProvider`, `@test`, etc.).
 - **Catch clause imports**: See Section 3 — any controller/service using `catch (Exception $e)` must import `use Exception;` or the catch silently fails in PHP 8.4.
+- **`use Exception;` import**: In namespaced PHP files (controllers, services), always add `use Exception;` at the top if the file uses `catch (Exception $e)`. Without the import, PHP 8.4 resolves `Exception` to `App\Controller\Exception` (which doesn't exist), causing catch blocks to silently fail — exceptions propagate as 500 errors with no redirect handling. The global `\Exception` fallback for built-in classes does NOT apply to catch clauses in PHP 8.x.
 
 ## References
 - See `references/` directory for session-specific debugging notes, error transcripts, and domain notes.
