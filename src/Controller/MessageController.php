@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Exception\AppException;
 use App\Form\MessageSubmitRequest;
+use Exception;
 use App\Service\TokenLinkService;
 use App\Service\TokenStateService;
 use App\Service\PgpKeyService;

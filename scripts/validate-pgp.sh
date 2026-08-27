@@ -10,6 +10,11 @@ PRIVATE_KEY="${PGP_CONFIG_DIR}/private.key"
 PUBLIC_KEY="${PGP_CONFIG_DIR}/public.key"
 LOG_FILE="${PGP_CONFIG_DIR}/validation.log"
 
+# The passphrase for the PGP key (if passphrase-protected).
+# Uses the PGP_PRIVATE_KEY_PASSPHRASE env var, which is set in docker-compose
+# or the host environment. Falls back to empty (for no-protection keys).
+PASSPHRASE="${PGP_PRIVATE_KEY_PASSPHRASE:-}"
+
 # Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "${LOG_FILE}"
@@ -68,17 +73,38 @@ log "GPG keyring contains secret keys"
 test_message="Test message for PGP signing validation"
 echo "${test_message}" > /tmp/test-message
 
-if ! gpg --sign /tmp/test-message &> /dev/null; then
-    log "ERROR: Failed to sign test message"
-    rm -f /tmp/test-message
-    exit 1
-fi
-
-# Verify signature
-if ! gpg --verify /tmp/test-message.gpg &> /dev/null; then
-    log "ERROR: Failed to verify test message signature"
-    rm -f /tmp/test-message /tmp/test-message.gpg
-    exit 1
+# Use --pinentry-mode loopback with passphrase if a passphrase is provided.
+# This works for both passphrase-protected and no-protection keys.
+# For no-protection keys, --passphrase "" is a no-op (no error).
+if [ -n "${PASSPHRASE}" ]; then
+    log "Testing signing with passphrase-protected key (loopback pinentry)..."
+    if ! gpg --batch --yes --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
+        --sign /tmp/test-message &> /dev/null; then
+        log "ERROR: Failed to sign test message"
+        rm -f /tmp/test-message
+        exit 1
+    fi
+    # Verify signature
+    if ! gpg --verify /tmp/test-message.gpg &> /dev/null; then
+        log "ERROR: Failed to verify test message signature"
+        rm -f /tmp/test-message /tmp/test-message.gpg
+        exit 1
+    fi
+    log "Signature verified successfully"
+else
+    log "Testing signing (no passphrase)..."
+    if ! gpg --batch --yes --sign /tmp/test-message &> /dev/null; then
+        log "ERROR: Failed to sign test message"
+        rm -f /tmp/test-message
+        exit 1
+    fi
+    # Verify signature
+    if ! gpg --verify /tmp/test-message.gpg &> /dev/null; then
+        log "ERROR: Failed to verify test message signature"
+        rm -f /tmp/test-message /tmp/test-message.gpg
+        exit 1
+    fi
+    log "Signature verified successfully"
 fi
 
 # Clean up test files

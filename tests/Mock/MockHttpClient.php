@@ -18,8 +18,9 @@ use Symfony\Contracts\HttpClient\ResponseStreamInterface;
  */
 class MockHttpClient implements HttpClientInterface
 {
-    // Minimal valid-looking PGP public key block (content is fake but structurally correct)
-    private const FAKE_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmQENBFakeKeyBQCBfakedata==\n=fake\n-----END PGP PUBLIC KEY BLOCK-----\n";
+    // Valid-looking PGP public key block with test@example.com UID so that
+    // PgpKeyService::keyHasEmailUid() matches the recipient email used in UI tests.
+    private const FAKE_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nVersion: GnuPG v2\n\nmQENBFakeKeyBQCBfakedata==\n=fake\nuid           Test User <test@example.com>\n-----END PGP PUBLIC KEY BLOCK-----\n";
 
     private SymfonyMockHttpClient $inner;
 

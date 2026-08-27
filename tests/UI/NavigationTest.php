@@ -2,6 +2,7 @@
 
 namespace App\Tests\UI;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 /**
@@ -11,9 +12,7 @@ class NavigationTest extends WebTestCase
 {
     // Feature: ui-redesign, Property 3: Active Nav Link Marked with aria-current
 
-    /**
-     * @dataProvider navRouteProvider
-     */
+    #[DataProvider('navRouteProvider')]
     public function testActiveNavLinkMarkedWithAriaCurrent(string $url, string $expectedLinkText): void
     {
         $client = static::createClient();

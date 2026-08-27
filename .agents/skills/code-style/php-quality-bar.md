@@ -10,9 +10,9 @@ description: Maintaining modern PHP code quality, architecture, and security sta
 **Use when:** Writing or reviewing PHP code in the Lockpost Symfony project. Enforces architectural invariants, security boundaries, and quality standards.
 
 ## Stack
-- **PHP 8.3** (platform pinned in `composer.json` config.platform.php)
-- **Symfony 7.1** (FrameworkBundle, Form, HttpKernel, Mailer, Validator, RateLimiter, CSRF)
-- **PHPUnit 9.5** (via Symfony PHPUnit Bridge)
+- **PHP 8.4** (platform pinned in `composer.json` config.platform.php)
+- **Symfony 7.4** (FrameworkBundle, Form, HttpKernel, Mailer, Validator, RateLimiter, CSRF)
+- **PHPUnit 12** (via plain PHPUnit, not Symfony PHPUnit Bridge)
 
 ## 1. Constructor Property Promotion
 All service classes must use PHP 8 promoted readonly constructor parameters:
@@ -94,8 +94,10 @@ Both must be consumed before processing; return HTTP 429 with `Retry-After` head
 - Tests must not make real network calls — use `MockHttpClient` for `PgpKeyService`.
 - Fix test naming typos (e.g., `testInvalidSighing` → `testInvalidSigning`).
 - `TokenLinkServiceTest` covers: roundtrip, case-insensitive email, tamper detection, expired token, garbage token.
+- **PHPUnit 12 metadata**: Use PHP 8 attributes (`#[DataProvider('method')]`, `#[Test]`, etc.) — PHPUnit 12 dropped support for annotation-based metadata (`@dataProvider`, `@test`, etc.).
+- **`use Exception;` import**: In namespaced PHP files (controllers, services), always add `use Exception;` at the top if the file uses `catch (Exception $e)`. Without the import, PHP 8.4 resolves `Exception` to `App\Controller\Exception` (which doesn't exist), causing catch blocks to silently fail — exceptions propagate as 500 errors with no redirect handling. The global `\Exception` fallback for built-in classes does NOT apply to catch clauses in PHP 8.x.
 
 ## References
 - See `references/` directory for session-specific debugging notes, error transcripts, and domain notes.
-  - `references/debugging-notes-aug2026.md` — session debugging notes
+  - `references/debugging-notes-aug2026.md` — debugging notes for PHP 8.4/ PHPUnit 12 deployment issues: `use Exception;` import, `#[DataProvider]` attributes, MockHttpClient UID, passphrase-protected key tests, git safe.directory
   - `references/crlf-line-endings-fix.md` — CRLF fix for shell scripts in Docker

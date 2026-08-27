@@ -117,8 +117,7 @@ Open `.env` in a text editor and set each value:
 openssl rand -hex 32
 ```
 
--Paste the output as the value of `APP_SECRET` in `.env.prod`.
-+Paste the output as the value of `APP_SECRET` in `.env`.
+Paste the output as the value of `APP_SECRET` in `.env`.
 
 **`APP_MAIL_FROM`** — set to a real sender address at your domain:
 
@@ -395,3 +394,50 @@ docker exec php chown -R www-data:www-data /var/www/app/var/
 Repeat Section 7 to confirm the updated deployment is healthy.
 
 > **Persistence note:** `config/pgp/` and `.env.prod` are bind-mounted from the VPS host filesystem. They survive image rebuilds, `docker compose down`, and VPS reboots. You do not need to regenerate PGP keys or recreate `.env.prod` during a normal redeployment.
+
+---
+
+## Appendix A: Local Development & Testing
+
+This appendix covers local development setup and running the test suite — see `.agents/skills/dev-environment/local-dev.md` and `.agents/skills/testing-runner/` skills for the authoritative, detailed instructions.
+
+### A.1 Clone and Configure
+
+```shell
+git clone <repo-url> /path/to/lockpost
+cd /path/to/lockpost
+cp .env.example .env
+# Set APP_SECRET to a random value: openssl rand -hex 32
+```
+
+### A.2 Start Containers
+
+```shell
+docker compose up --build -d
+```
+
+Services: nginx (port 8080), PHP-FPM (internal), MailHog (ports 1025/8025).
+
+### A.3 Install Dependencies
+
+```shell
+docker compose exec php composer install --no-scripts
+docker compose exec php php bin/console importmap:require @hotwired/stimulus openpgp
+docker compose exec php php bin/console importmap:install
+```
+
+### A.4 Generate PGP Keys
+
+```shell
+docker compose exec php bash /var/www/app/scripts/init-pgp.sh --with-passphrase your-secure-passphrase
+docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"
+docker compose exec php bash -c "git config --global --add safe.directory /var/www/app"
+```
+
+### A.5 Run Tests
+
+```shell
+docker compose exec php php bin/phpunit --no-coverage
+```
+
+Expected: all tests pass (114 tests, 266 assertions).
