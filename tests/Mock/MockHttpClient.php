@@ -26,13 +26,14 @@ class MockHttpClient implements HttpClientInterface
 
     public function __construct()
     {
-        // Wrap strings in MockResponse objects — Symfony's MockHttpClient
-        // requires ResponseInterface instances or a callable, not bare strings.
-        $this->inner = new SymfonyMockHttpClient([
-            new MockResponse(self::FAKE_KEY, ['http_code' => 200]),
-            new MockResponse(self::FAKE_KEY, ['http_code' => 200]),
-            new MockResponse(self::FAKE_KEY, ['http_code' => 200]),
-        ]);
+        // Use a callable that returns a new MockResponse for every request.
+        // This provides unlimited responses — Symfony's MockHttpClient only
+        // exhausts responses when given a fixed array. When tests make more
+        // requests than the number of responses (e.g., multiple test methods
+        // sharing a kernel), a callable avoids "No more response left" errors.
+        $this->inner = new SymfonyMockHttpClient(function (string $method, string $url, array $options): MockResponse {
+            return new MockResponse(self::FAKE_KEY, ['http_code' => 200]);
+        });
     }
 
     public function request(string $method, string $url, array $options = []): ResponseInterface
