@@ -30,13 +30,27 @@ throw new AppException('User-facing message', 0, $e);
 ```
 This preserves the full stack trace for production debugging.
 
-## 3. No Information Leaks to Users
+## 3. Namespaces Must Import Caught Exception Types
+**Always** import `Exception` (or `\Exception`) in any namespaced PHP file that uses `catch (Exception $e)`:
+```php
+namespace App\Controller;
+
+use Exception;  // ← REQUIRED in PHP 8.x
+```
+Without this import, PHP 8.x resolves the bare `Exception` in the catch clause to the current namespace (`App\Controller\Exception`) — a class that does not exist. Unlike PHP 7.x, PHP 8.x does **not** fall back to the global `\Exception` for class references in catch clauses. This causes the catch block to silently not match any exception, so uncaught exceptions propagate to Symfony's ExceptionListener and produce HTTP 500 errors instead of the intended redirect/error handling. The bug passes PHP linting (no syntax error) but breaks runtime exception handling.
+
+**Affected patterns:**
+- `catch (Exception $e)` in controllers → install `use Exception;`
+- `catch (\Throwable $e)` is always safe (FQCN, no import needed)
+- `catch (AppException $e)` requires `use App\Exception\AppException;` (or FQCN)
+
+## 4. No Information Leaks to Users
 - **Never** return `$e->getMessage()` to the client (HTML, JSON, flash, session).
 - Use generic messages: "An internal error occurred while sending the message."
 - Always log the full exception via `LoggerInterface`.
 - `ErrorHandler::handleControllerException()`: AppException → HTTP 400, generic Exception → HTTP 500.
 
-## 4. CSRF Protection on JSON Endpoints
+## 5. CSRF Protection on JSON Endpoints
 All POST endpoints that accept JSON (not Symfony Forms) must validate CSRF tokens:
 ```php
 $token = new CsrfToken('submit_message', $data['_csrf_token'] ?? '');
@@ -46,27 +60,27 @@ if (!$this->csrfTokenManager->isTokenValid($token)) {
 ```
 Stimulus controllers must pass `data-controller-csrf-token-value="{{ csrf_token('submit_message') }}"`.
 
-## 5. Rate Limiting on Abuse-Prone Endpoints
+## 6. Rate Limiting on Abuse-Prone Endpoints
 Email-sending and key-lookup endpoints must have both IP and token rate limiting:
 - `submit_ip`: `fixed_window`, limit=5, interval=1 minute (requires `symfony/lock`)
 - `submit_token`: `sliding_window`, limit=10, interval=1 hour
 Both must be consumed before processing; return HTTP 429 with `Retry-After` header on rejection.
 
-## 6. PGP/GnuPG Security
+## 7. PGP/GnuPG Security
 - **Passphrase enforcement**: `PgpSigningService::__construct()` must throw `AppException` if passphrase is empty in `prod`/`test` environments.
 - **No keyring pollution**: `verifySignature()` must create an isolated temp GnuPG home per call (never import untrusted keys into server keyring).
 - **Signer caching**: `PgpSigningService` must cache a single `gnupg` instance initialized once in constructor. `signMessage()` must NOT call `putenv()` or re-import the key on every call.
 - **Verify API**: Use `$gpg->verify($signedMessage, false)` for combined cleartext-signed blocks. Check `($sig['summary'] & GNUPG_SIGSUM_RED) === 0` for validity.
 - **GNUPGHOME consistency**: `docker-compose.yml` env var must match `services.yaml` `app.pgp.key_config_path` parameter.
 
-## 7. HTTP Client Usage (PgpKeyService)
+## 8. HTTP Client Usage (PgpKeyService)
 - Fire all key-server requests concurrently
 - Use `'http_errors' => false` to prevent exceptions on 4xx/5xx during streaming
 - Short-circuit on first valid 2xx response with PGP key block
 - Cancel remaining responses in a `finally` block
 - `MockHttpClient` in tests must delegate `cancel()` and `stream()` to Symfony's `MockHttpClient`
 
-## 8. Docker/Infrastructure Security
+## 9. Docker/Infrastructure Security
 - **PHP-FPM**: Use `expose` (not `ports`) for internal services. Only nginx publishes ports.
 - **Extensions**: Only install what the app needs. No `pdo_mysql`, `redis`, `gd`.
 - **Xdebug**: Only in dev build stage (`target: dev`). Production uses `target: final`.
@@ -75,27 +89,27 @@ Both must be consumed before processing; return HTTP 429 with `Retry-After` head
 - **Networking**: Use bridge network with named networks in prod. Avoid `network_mode: host`.
 - **Composer**: Install from official `composer:2` image, not `curl installer | php`.
 
-## 9. Email Template Standards
+## 10. Email Template Standards
 - Single `<!DOCTYPE html>` — never duplicate documents.
 - No `<script>`, `onclick`, or `display:none` — email clients strip JavaScript.
 - All sections always visible using `<table>` layout with inline CSS.
 - All user content escaped via `| e` filter.
 
-## 10. Environment & Config Hygiene
+## 11. Environment & Config Hygiene
 - `ext-opcache` not `ext-zend-opcache` in `composer.json`.
-- `composer.json` config: `platform: { php: "8.3", ext-opcache: "8.3" }` and `platform-check: false` (OPcache loads as Zend extension; Composer can't detect it in CLI mode).
+- `composer.json` config: `platform: { php: "8.4", ext-opcache: "8.3" }` and `platform-check: false` (OPcache loads as Zend extension; Composer can't detect it in CLI mode).
 - `MESSENGER_TRANSPORT_DSN=sync://` (not `doctrine://`).
 - Delete dead config files (`config/packages/gpg.yaml`) and dead assets (`public/jquery.min.js`).
 - `framework.yaml` session: `cookie_samesite: lax` explicit.
 - `importmap.php` must be committed — it registers `@hotwired/stimulus` and `openpgp` for asset mapper.
 
-## 11. Testing Standards
+## 12. Testing Standards
 - TDD: add tests before modifying code when test gaps exist.
 - Tests must not make real network calls — use `MockHttpClient` for `PgpKeyService`.
 - Fix test naming typos (e.g., `testInvalidSighing` → `testInvalidSigning`).
 - `TokenLinkServiceTest` covers: roundtrip, case-insensitive email, tamper detection, expired token, garbage token.
 - **PHPUnit 12 metadata**: Use PHP 8 attributes (`#[DataProvider('method')]`, `#[Test]`, etc.) — PHPUnit 12 dropped support for annotation-based metadata (`@dataProvider`, `@test`, etc.).
-- **`use Exception;` import**: In namespaced PHP files (controllers, services), always add `use Exception;` at the top if the file uses `catch (Exception $e)`. Without the import, PHP 8.4 resolves `Exception` to `App\Controller\Exception` (which doesn't exist), causing catch blocks to silently fail — exceptions propagate as 500 errors with no redirect handling. The global `\Exception` fallback for built-in classes does NOT apply to catch clauses in PHP 8.x.
+- **Catch clause imports**: See Section 3 — any controller/service using `catch (Exception $e)` must import `use Exception;` or the catch silently fails in PHP 8.4.
 
 ## References
 - See `references/` directory for session-specific debugging notes, error transcripts, and domain notes.
