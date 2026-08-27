@@ -11,10 +11,15 @@
         <server name="APP_ENV" value="test" force="true"/>
         <server name="SHELL_VERBOSITY" value="-1"/>
         <server name="SYMFONY_PHPUNIT_REMOVE" value=""/>
-        <server name="SYMFONY_PHPUNIT_VERSION" value="11"/>
+        <server name="SYMFONY_PHPUNIT_VERSION" value="12"/>
         <env name="APP_ENV" value="test"/>
         <env name="APP_DEBUG" value="1"/>
         <env name="SESSION_AUTO_START" value="false"/>
+        <!-- Ensure test env vars are always set regardless of container env_file overrides -->
+        <env name="APP_SECRET" value="test-secret-32-chars-long!!"/>
+        <env name="APP_MAIL_FROM" value="noreply@example.com"/>
+        <env name="PGP_PRIVATE_KEY_PASSPHRASE" value="your-secure-passphrase"/>
+        <env name="MAILER_DSN" value="smtp://mailhog:1025"/>
     </php>
 
     <testsuites>

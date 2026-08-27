@@ -16,7 +16,7 @@ The project includes a Salt state file at `salt/states/lockpost.sls` that perfor
 ## Prerequisites
 
 - SSH key `~/.ssh/ssh-key-oracle.key` (already set up on the VPS)
-- SSH access to the VPS confirmed (see `connect-ssh.md`)
+- SSH access to the VPS confirmed
 - Local machine has `salt-ssh` installed (NOT on the VPS itself — the VPS has salt-master but salt-ssh is not installed there)
 
 ### Install salt-ssh locally (if not already installed)
