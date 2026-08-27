@@ -129,6 +129,12 @@ docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /v
 
 > **Windows users:** If the above `chown` fails with a `cannot access` error, it's because `docker exec` resolves paths against the Windows filesystem. Always wrap `chown` paths in `bash -c "..."` as shown above.
 
+Also fix the git safe.directory warning that can occur when running as www-data inside the container:
+
+```bash
+docker compose exec php bash -c "git config --global --add safe.directory /var/www/app"
+```
+
 ### 7. Verify
 
 The app is available at **http://localhost:8080**.
@@ -151,7 +157,7 @@ Defined in `.env` (copy from `.env.example`):
 | `APP_SECRET` | Random secret used for token encryption — change this |
 | `MAILER_DSN` | SMTP connection string. Default points to MailHog: `smtp://mailhog:1025` |
 | `MESSENGER_TRANSPORT_DSN` | Messenger transport. Default: `sync://` |
-| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. Required in production. The default `init-pgp.sh` generates keys with no passphrase (`%no-protection`), so leave this as the placeholder or set it to empty for local dev |
+| `PGP_PRIVATE_KEY_PASSPHRASE` | Passphrase for the server's PGP private key. Required in production. When generating keys with `--with-passphrase`, this must match the passphrase used during generation. For keys generated without a passphrase (`%no-protection`), this can be left as the placeholder |
 | `APP_TOKEN_TTL` | Token link expiration in seconds. Default: `604800` (7 days). Set to `86400` (24 hours) for maximum security, or `2592000` (30 days) to match the old default. |
 
 ---
@@ -223,7 +229,7 @@ docker compose down
 - **Backend:** PHP 8.4, Symfony 7.4
 - **Frontend:** Stimulus, Symfony AssetMapper, OpenPGP.js, Bootstrap 5
 - **Infrastructure:** Docker, NGINX, PHP-FPM, MailHog
-- **Testing:** PHPUnit 11
+- **Testing:** PHPUnit 12
 
 ### PGP key storage
 
@@ -234,7 +240,7 @@ config/pgp/
   private.key       # Server signing key  (chmod 600, owner www-data)
   public.key        # Server public key   (chmod 644, owner www-data)
   key-config/       # GnuPG home directory
-    gpg.conf        # GPG config (pinentry-mode loopback, no-protection)
+    gpg.conf        # GPG config (pinentry-mode loopback)
 ```
 
 ---

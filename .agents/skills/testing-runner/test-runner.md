@@ -29,7 +29,7 @@ GNUPGHOME=/var/www/app/config/pgp/key-config
 
 ### Full Test Suite
 ```bash
-# Method 1: Run against the started container
+# Method 1: Run against the started container (simplest — env vars loaded from .env)
 docker compose exec php php bin/phpunit --no-coverage
 
 # Method 2: Fresh container (no service start required)
@@ -42,40 +42,21 @@ docker compose run --rm --no-deps \
   -e GNUPGHOME=/var/www/app/config/pgp/key-config \
   php php bin/phpunit --no-coverage
 ```
+> **Note:** Method 1 works because the test environment loads `.env` automatically. Use Method 2 only if you need a fresh container for isolation.
 
 ### Individual Test Files
 ```bash
 # Token link tests (no PGP/GPG needed — fastest to run)
-docker compose run --rm --no-deps \
-  -e APP_ENV=test -e APP_SECRET=test-secret-32-chars-long!! \
-  -e PGP_PRIVATE_KEY_PASSPHRASE=your-secure-passphrase \
-  -e APP_MAIL_FROM=noreply@lockpost.local -e MAILER_DSN=smtp://mailhog:1025 \
-  -e GNUPGHOME=/var/www/app/config/pgp/key-config \
-  php php bin/phpunit tests/Service/TokenLinkServiceTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/Service/TokenLinkServiceTest.php --no-coverage
 
 # PGP signing tests (requires GPG keys)
-docker compose run --rm --no-deps \
-  -e APP_ENV=test -e APP_SECRET=test-secret-32-chars-long!! \
-  -e PGP_PRIVATE_KEY_PASSPHRASE=your-secure-passphrase \
-  -e APP_MAIL_FROM=noreply@lockpost.local -e MAILER_DSN=smtp://mailhog:1025 \
-  -e GNUPGHOME=/var/www/app/config/pgp/key-config \
-  php php bin/phpunit tests/Service/PgpSigningServiceTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/Service/PgpSigningServiceTest.php --no-coverage
 
 # PGP key service tests (uses mock HTTP client, no network, no GPG)
-docker compose run --rm --no-deps \
-  -e APP_ENV=test -e APP_SECRET=test-secret-32-chars-long!! \
-  -e PGP_PRIVATE_KEY_PASSPHRASE=your-secure-passphrase \
-  -e APP_MAIL_FROM=noreply@lockpost.local -e MAILER_DSN=smtp://mailhog:1025 \
-  -e GNUPGHOME=/var/www/app/config/pgp/key-config \
-  php php bin/phpunit tests/Service/PgpKeyServiceTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/Service/PgpKeyServiceTest.php --no-coverage
 
 # Controller tests (requires full kernel boot + GPG keys)
-docker compose run --rm --no-deps \
-  -e APP_ENV=test -e APP_SECRET=test-secret-32-chars-long!! \
-  -e PGP_PRIVATE_KEY_PASSPHRASE=your-secure-passphrase \
-  -e APP_MAIL_FROM=noreply@lockpost.local -e MAILER_DSN=smtp://mailhog:1025 \
-  -e GNUPGHOME=/var/www/app/config/pgp/key-config \
-  php php bin/phpunit tests/Controller/DefaultControllerTest.php --no-coverage
+docker compose exec php php bin/phpunit tests/Controller/DefaultControllerTest.php --no-coverage
 ```
 
 ## Known Issues
@@ -84,3 +65,4 @@ docker compose run --rm --no-deps \
 - **Container hangs on `docker compose run`**: Use `--no-deps` flag to avoid starting dependent services. The entrypoint starts PHP-FPM as a daemon; always pass an explicit command.
 - **chown path issues**: Use `docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"` (not `docker exec php` without `bash -c`).
 - **Full suite timeout**: If tests hang, run test files individually to isolate the problem. The UI tests may time out if GPG keys aren't generated yet.
+- **Git safe.directory warning**: When running composer/phpunit as www-data in the container, fix with: `docker compose exec php bash -c "git config --global --add safe.directory /var/www/app"`

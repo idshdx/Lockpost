@@ -62,6 +62,10 @@ PHP-FPM runs as `www-data`. Fix ownership so the FPM worker can read PGP keys an
 ```bash
 docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /var/www/app/config/pgp/"
 ```
+Also fix the git safe.directory warning that can occur when running as www-data inside the container:
+```bash
+docker compose exec php bash -c "git config --global --add safe.directory /var/www/app"
+```
 > **Windows note:** Always use `bash -c "..."` wrapper for chown commands to avoid path translation issues.
 
 ### 8. Access the Application
@@ -75,3 +79,5 @@ docker compose exec php bash -c "chown -R www-data:www-data /var/www/app/var/ /v
 - **502 Bad Gateway from nginx**: PHP-FPM may not be ready. Wait 2-3 seconds and retry.
 - **404 on /server-key**: Ensure PGP keys were generated and permissions are set (Step 7).
 - **Template errors about missing assets**: Run the importmap commands from Step 5.
+- **`catch (Exception $e)` not catching in controllers**: In PHP 8.4, if a controller uses `catch (Exception $e)` without a `use Exception;` import in its namespace, PHP resolves `Exception` to `App\Controller\Exception` (which doesn't exist) — the catch silently fails and exceptions propagate as 500 errors. Always import `use Exception;` in controller/service files that catch exceptions.
+- **`@dataProvider` annotations failing in tests**: PHPUnit 12 dropped support for annotation-based metadata. Convert `@dataProvider` annotations to `#[DataProvider]` PHP attributes.

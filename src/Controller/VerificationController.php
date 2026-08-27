@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Service\PgpSigningService;
+use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormFactoryInterface;

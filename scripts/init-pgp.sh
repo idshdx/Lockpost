@@ -21,6 +21,18 @@ chmod -R 700 "${PGP_CONFIG_DIR}"
 
 export GNUPGHOME="${KEY_CONFIG_DIR}"
 
+# Configure gpg-agent for loopback pinentry so that passphrase-protected keys
+# can be used in non-interactive (no TTY) contexts like Docker containers.
+# Without this, gpg will fail with "Inappropriate ioctl for device" when
+# trying to prompt for a passphrase via the agent.
+mkdir -p ~/.gnupg
+echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+printf "pinentry-mode loopback\n" >> ~/.gnupg/gpg.conf
+# Restart the agent to pick up the new config
+gpgconf --kill gpg-agent 2>/dev/null || true
+sleep 1
+gpgconf --launch gpg-agent 2>/dev/null || true
+
 if [ -f "${PRIVATE_KEY}" ] && [ -f "${PUBLIC_KEY}" ]; then
   echo "Existing key pair found, skipping generation."
 else
@@ -42,10 +54,20 @@ EOF
 
   gpg --batch --generate-key /tmp/gpg-batch
   rm /tmp/gpg-batch
-  KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -1 | cut -d'/' -f2 | cut -d' ' -f1)
+  KEY_ID=$(gpg --list-secret-keys --keyid-format LONG | grep sec | head -1 | cut -d'/' -f2 | cut -d ' ' -f1)
   echo "Key ID: ${KEY_ID}"
-  gpg --export -a "${KEY_ID}" > "${PUBLIC_KEY}"
-  gpg --export-secret-key -a "${KEY_ID}" > "${PRIVATE_KEY}"
+
+  if [ -n "${PASSPHRASE}" ]; then
+    # Export with passphrase using loopback pinentry for non-interactive contexts
+    gpg --batch --yes --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
+      --export -a "${KEY_ID}" > "${PUBLIC_KEY}"
+    gpg --batch --yes --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
+      --export-secret-key -a "${KEY_ID}" > "${PRIVATE_KEY}"
+  else
+    # No passphrase needed for %no-protection keys
+    gpg --batch --yes --export -a "${KEY_ID}" > "${PUBLIC_KEY}"
+    gpg --batch --yes --export-secret-key -a "${KEY_ID}" > "${PRIVATE_KEY}"
+  fi
   echo "Key pair generated successfully."
 fi
 
