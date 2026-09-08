@@ -1,0 +1,23 @@
+# Project-scoped Hermes config for sym-pgp-ony.
+# Loaded automatically when Hermes runs inside this repository (cwd based).
+# This file is VERSION-CONTROLLED for the team. Do NOT put secrets here.
+#
+# Secrets / machine-local overrides -> .hermes/config.local.yaml (git-ignored).
+
+# --- Project-scoped MCP servers -----------------------------------------
+# Filesystem MCP strictly limited to THIS repo root (never outside ./).
+mcp_servers:
+  filesystem:
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - "C:\\Users\\mihai\\Documents\\GitHub\\sym-pgp-ony"
+
+# --- Project skill discovery --------------------------------------------
+# Skills stored in <repo>/.hermes/skills/ are discovered automatically
+# when Hermes runs with this repo as cwd. No registration needed here.
+
+# --- Project-specific runtime settings -----------------------------------
+# terminal:
+#   cwd: C:\Users\mihai\Documents\GitHub\sym-pgp-ony

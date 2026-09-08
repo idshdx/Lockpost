@@ -48,4 +48,10 @@ _bmad/render/
 _bmad/
 _bmad-output/
 .bmad-loop/
-.hermes/
+
+# --- Hermes (project-scoped agent) ---
+# Keep .hermes/skills/ and .hermes/config.yaml version-controlled for the team.
+# Ignore local-only secrets / machine-specific overrides and local tool binaries.
+.hermes/config.local.yaml
+.hermes/tools/local/
+.hermes/local/
