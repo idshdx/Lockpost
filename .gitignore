@@ -38,6 +38,9 @@ docker/mysql
 scripts/php-docker.bat
 *.code-workspace
 .kiro/settings/mcp.json
+
+# --- AI Agent / Build tooling (generated/local-only) ---
+.agentbridge/
 .kiro/
 .bmad-loop/runs/
 .bmad-loop/cache/
@@ -47,5 +50,5 @@ _bmad/render/
 # --- BMAD method (generated/local-only) ---
 _bmad/
 _bmad-output/
-.bmad-loop/
-.hermes/
+/.bmad-loop/
+/.hermes/
