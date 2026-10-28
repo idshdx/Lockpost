@@ -1,5 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
-import * as openpgp from 'openpgp';
+// openpgp is loaded on demand — see assets/openpgp_loader.js. A static import
+// here would abort the whole module graph on insecure origins and kill Stimulus.
+import { loadOpenpgp, INSECURE_CONTEXT_MESSAGE } from '../openpgp_loader.js';
 
 export default class extends Controller {
     static targets = ['signedMessage', 'publicKey', 'result', 'submitBtn', 'loading'];
@@ -19,6 +21,7 @@ export default class extends Controller {
         this._hideResult();
 
         try {
+            const openpgp = await loadOpenpgp();
             const publicKey = await openpgp.readKey({ armoredKey: pubKeyArmored });
 
             // The signed message is a PGP cleartext-signed message
@@ -43,10 +46,24 @@ export default class extends Controller {
                 );
             }
         } catch (error) {
-            this._showResult('danger', `Error: ${error.message}`);
+            this._showResult('danger', this._friendlyError(error));
         } finally {
             this._setLoading(false);
         }
+    }
+
+    /**
+     * Keeps the existing user-facing text, but replaces the WebCrypto failure —
+     * which is really "this page is not HTTPS" — with an actionable message.
+     */
+    _friendlyError(error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (/webcrypto|crypto\.subtle/i.test(message)) {
+            return INSECURE_CONTEXT_MESSAGE;
+        }
+
+        return `Error: ${message}`;
     }
 
     _showResult(type, message) {

@@ -2,13 +2,51 @@
 
 namespace App\Tests\Controller;
 
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\BrowserKit\Cookie;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\RateLimiter\LimiterInterface;
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
+use Symfony\Component\Security\Csrf\TokenStorage\SessionTokenStorage;
 
 class DefaultControllerTest extends WebTestCase
 {
     private const VERIFY_ROUTE = '/verify';
     private const EMAIL_FORM_SELECTOR = 'form[name="email_form"]';
+
+    /**
+     * Returns a valid CSRF token for the given id and makes the client reuse the
+     * session it was stored in.
+     *
+     * /message/submit validates CSRF before DTO/rate-limit validation, so tests
+     * that intend to exercise those later gates must present a real token —
+     * otherwise they 400 at the CSRF check and assert nothing meaningful.
+     *
+     * The token manager persists tokens in the session, so a session is created
+     * explicitly and bound to a throwaway request (SessionTokenStorage reads the
+     * session off the request stack). The client is then pointed at that same
+     * session via its cookie so the controller's own token manager finds it.
+     */
+    private function csrfToken(KernelBrowser $client, string $id = 'submit_message'): string
+    {
+        $container = $client->getContainer();
+        $session = $container->get('session.factory')->createSession();
+
+        $request = Request::create('/');
+        $request->setSession($session);
+        $stack = new RequestStack();
+        $stack->push($request);
+
+        $manager = new CsrfTokenManager(null, new SessionTokenStorage($stack));
+        $token = $manager->getToken($id)->getValue();
+
+        $session->save();
+        $client->getCookieJar()->set(new Cookie($session->getName(), $session->getId()));
+
+        return $token;
+    }
 
     public function testIndexPage(): void
     {
@@ -42,6 +80,17 @@ class DefaultControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The verify page now uses a plain HTML form wired to the Stimulus verify controller
         self::assertSelectorExists('form[data-controller="verify"]');
+
+        // The form is hand-rolled (no form_start/form_end), so the CSRF hidden
+        // input must be rendered explicitly via form_widget(form._token) —
+        // without it every non-JS POST to /verify/signature is rejected.
+        self::assertSelectorExists('input[name="verify_signature_form[_token]"]', 'The verify form must render its CSRF token field.');
+
+        // Guard against stray backslash-escaped quotes (data-verify-target=\"…\")
+        // leaking into the HTML: they corrupt the attribute value so Stimulus
+        // can never resolve the target and the JS verify path silently dies.
+        self::assertSelectorExists('textarea[data-verify-target="signedMessage"]', 'The signed-message textarea must carry a valid Stimulus target.');
+        self::assertSelectorExists('textarea[data-verify-target="publicKey"]', 'The public-key textarea must carry a valid Stimulus target.');
     }
 
     public function testValidFormSubmission(): void
@@ -126,7 +175,10 @@ class DefaultControllerTest extends WebTestCase
             [],
             [],
             ['CONTENT_TYPE' => 'application/json'],
-            json_encode(['encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----"])
+            json_encode([
+                'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+                '_csrf_token' => $this->csrfToken($client),
+            ])
         );
 
         self::assertResponseStatusCodeSame(400);
@@ -153,7 +205,7 @@ class DefaultControllerTest extends WebTestCase
         $payload = json_encode([
             'token' => 'too-short',  // fails token format validation
             'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
-            '_csrf_token' => 'test',
+            '_csrf_token' => $this->csrfToken($client),
         ]);
 
         // First request — should get 400 (validation error), not 429
@@ -251,6 +303,7 @@ class DefaultControllerTest extends WebTestCase
         $client = static::createClient();
         $payload = json_encode([
             'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+            '_csrf_token' => $this->csrfToken($client),
         ]);
 
         $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
@@ -271,6 +324,7 @@ class DefaultControllerTest extends WebTestCase
         $payload = json_encode([
             'token' => '!!!invalid-base64!!!',
             'encryptedMessage' => "-----BEGIN PGP MESSAGE-----\ntest\n-----END PGP MESSAGE-----",
+            '_csrf_token' => $this->csrfToken($client),
         ]);
 
         $client->request('POST', '/message/submit', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
@@ -278,6 +332,11 @@ class DefaultControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
         $data = json_decode($client->getResponse()->getContent(), true);
         self::assertFalse($data['success']);
+        // A valid CSRF token was supplied, so the request must clear the CSRF
+        // gate and fail at token resolution (which runs after CSRF + DTO +
+        // rate limits). Reaching this error proves the test exercises the
+        // intended validation path instead of short-circuiting on CSRF.
+        self::assertSame('Invalid or expired submission token', $data['error'] ?? null);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App;
 
 use App\DependencyInjection\AppSecretValidationPass;
+use App\DependencyInjection\TokenTtlValidationPass;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
@@ -16,5 +17,6 @@ class Kernel extends BaseKernel
         parent::build($container);
 
         $container->addCompilerPass(new AppSecretValidationPass());
+        $container->addCompilerPass(new TokenTtlValidationPass());
     }
 }

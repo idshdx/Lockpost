@@ -49,17 +49,20 @@ class TokenStateService
         }
 
         $hash = $this->hashToken($token);
-        $this->loadStore();
 
-        $this->store[$hash] = [
-            'nonce_hash' => $hash,
-            'exp' => $expiration,
-            'max_uses' => $maxUses,
-            'used' => 0,
-            'revoked' => false,
-        ];
+        $this->withLock(true, function () use ($hash, $expiration, $maxUses): void {
+            $this->loadStore();
 
-        $this->saveStore();
+            $this->store[$hash] = [
+                'nonce_hash' => $hash,
+                'exp' => $expiration,
+                'max_uses' => $maxUses,
+                'used' => 0,
+                'revoked' => false,
+            ];
+
+            $this->saveStore();
+        });
     }
 
     /**
@@ -75,28 +78,31 @@ class TokenStateService
         }
 
         $hash = $this->hashToken($token);
-        $this->loadStore();
 
-        if (!isset($this->store[$hash])) {
-            // Token not tracked — in stateful mode, this means invalid
-            return false;
-        }
+        return $this->withLock(false, function () use ($hash): bool {
+            $this->loadStore();
 
-        $entry = $this->store[$hash];
+            if (!isset($this->store[$hash])) {
+                // Token not tracked — in stateful mode, this means invalid
+                return false;
+            }
 
-        if ($entry['revoked']) {
-            return false;
-        }
+            $entry = $this->store[$hash];
 
-        if ($entry['exp'] < time()) {
-            return false;
-        }
+            if ($entry['revoked']) {
+                return false;
+            }
 
-        if ($entry['used'] >= $entry['max_uses']) {
-            return false;
-        }
+            if ($entry['exp'] < time()) {
+                return false;
+            }
 
-        return true;
+            if ($entry['used'] >= $entry['max_uses']) {
+                return false;
+            }
+
+            return true;
+        });
     }
 
     /**
@@ -112,12 +118,15 @@ class TokenStateService
         }
 
         $hash = $this->hashToken($token);
-        $this->loadStore();
 
-        if (isset($this->store[$hash])) {
-            $this->store[$hash]['used']++;
-            $this->saveStore();
-        }
+        $this->withLock(true, function () use ($hash): void {
+            $this->loadStore();
+
+            if (isset($this->store[$hash])) {
+                $this->store[$hash]['used']++;
+                $this->saveStore();
+            }
+        });
     }
 
     /**
@@ -132,12 +141,15 @@ class TokenStateService
         }
 
         $hash = $this->hashToken($token);
-        $this->loadStore();
 
-        if (isset($this->store[$hash])) {
-            $this->store[$hash]['revoked'] = true;
-            $this->saveStore();
-        }
+        $this->withLock(true, function () use ($hash): void {
+            $this->loadStore();
+
+            if (isset($this->store[$hash])) {
+                $this->store[$hash]['revoked'] = true;
+                $this->saveStore();
+            }
+        });
     }
 
     /**
@@ -158,24 +170,109 @@ class TokenStateService
     }
 
     /**
-     * Loads the token store from the JSON file.
+     * Runs $fn while holding a lock on the state file.
+     *
+     * The store is a plain JSON file shared by every PHP-FPM worker, so a
+     * read-modify-write cycle (e.g. consumeToken incrementing the counter)
+     * can interleave with another worker and silently lose the other
+     * worker's update. Serialising those cycles under an advisory flock
+     * prevents that lost-update race.
+     *
+     * Writes take an exclusive lock, reads a shared one. The lock lives in a
+     * sidecar file because saveStore() replaces the store file by rename,
+     * which would swap out the inode a lock held on the store itself.
+     *
+     * Locking is best-effort: if the lock file cannot be opened (read-only
+     * filesystem, exotic shared storage) the operation still runs rather than
+     * failing message submission, and a warning is logged.
+     *
+     * @template TReturn
+     *
+     * @param callable(): TReturn $fn
+     *
+     * @return TReturn
      */
-    private function loadStore(): void
+    private function withLock(bool $write, callable $fn): mixed
     {
-        if (empty($this->store) && file_exists($this->stateFile)) {
-            $json = file_get_contents($this->stateFile);
-            $this->store = json_decode($json, true) ?? [];
+        $dir = dirname($this->stateFile);
+
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+            $this->logger->warning('Could not create token state directory; proceeding without lock');
+            return $fn();
+        }
+
+        $handle = @fopen($dir . '/.tokens.lock', 'c+');
+
+        if ($handle === false) {
+            $this->logger->warning('Could not open token state lock file; proceeding without lock');
+            return $fn();
+        }
+
+        $locked = @flock($handle, $write ? LOCK_EX : LOCK_SH);
+
+        if (!$locked) {
+            $this->logger->warning('Could not acquire token state lock; proceeding without lock');
+        }
+
+        try {
+            return $fn();
+        } finally {
+            if ($locked) {
+                @flock($handle, LOCK_UN);
+            }
+            fclose($handle);
         }
     }
 
     /**
-     * Saves the token store to the JSON file.
+     * Loads the token store from the JSON file.
+     *
+     * Always re-reads (rather than caching) so each locked operation sees
+     * writes made by other workers. Corrupt JSON is logged and treated as an
+     * empty store instead of failing every token operation silently.
+     */
+    private function loadStore(): void
+    {
+        if (!file_exists($this->stateFile)) {
+            return;
+        }
+
+        $json = file_get_contents($this->stateFile);
+
+        if ($json === false) {
+            $this->logger->error('Could not read token state store; treating as empty');
+            $this->store = [];
+            return;
+        }
+
+        $decoded = json_decode($json, true);
+
+        if (!is_array($decoded)) {
+            $this->logger->error('Token state store contains invalid JSON; treating as empty', [
+                'error' => json_last_error_msg(),
+            ]);
+            $this->store = [];
+            return;
+        }
+
+        $this->store = $decoded;
+    }
+
+    /**
+     * Saves the token store to the JSON file atomically.
+     *
+     * Writes to a temp file in the same directory and renames it into place,
+     * so a concurrent reader never sees a truncated/half-written store, and
+     * enforces 0600 permissions because the file reveals operational state
+     * (token hashes, usage, revocations).
      */
     private function saveStore(): void
     {
         $dir = dirname($this->stateFile);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0750, true);
+
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+            $this->logger->error('Could not create token state directory');
+            return;
         }
 
         $json = json_encode($this->store, JSON_PRETTY_PRINT);
@@ -184,14 +281,41 @@ class TokenStateService
             return;
         }
 
-        if (file_put_contents($this->stateFile, $json) === false) {
-            $this->logger->error('Failed to write token state store');
+        $tmp = @tempnam($dir, 'tokens.');
+
+        if ($tmp === false) {
+            $this->logger->error('Failed to create temp file for token state store');
+            return;
         }
+
+        // tempnam() silently falls back to the system temp dir when $dir is
+        // not writable; a rename across filesystems is not atomic, so bail out.
+        if (realpath(dirname($tmp)) !== realpath($dir)) {
+            $this->logger->error('Token state directory is not writable; store not saved');
+            @unlink($tmp);
+            return;
+        }
+
+        if (file_put_contents($tmp, $json) === false) {
+            $this->logger->error('Failed to write token state store');
+            @unlink($tmp);
+            return;
+        }
+
+        @chmod($tmp, 0600);
+
+        if (!@rename($tmp, $this->stateFile)) {
+            $this->logger->error('Failed to move token state store into place');
+            @unlink($tmp);
+            return;
+        }
+
+        @chmod($this->stateFile, 0600);
     }
 
     /**
      * Cleans up expired tokens from the store.
-     * Should be called periodically (e.g., via cron job).
+     * Should be called periodically (e.g., via the app:tokens:cleanup command).
      */
     public function cleanupExpired(): int
     {
@@ -199,21 +323,23 @@ class TokenStateService
             return 0;
         }
 
-        $this->loadStore();
-        $now = time();
-        $count = 0;
+        return $this->withLock(true, function (): int {
+            $this->loadStore();
+            $now = time();
+            $count = 0;
 
-        foreach ($this->store as $hash => $entry) {
-            if ($entry['exp'] < $now) {
-                unset($this->store[$hash]);
-                $count++;
+            foreach ($this->store as $hash => $entry) {
+                if (!is_array($entry) || ($entry['exp'] ?? 0) < $now) {
+                    unset($this->store[$hash]);
+                    $count++;
+                }
             }
-        }
 
-        if ($count > 0) {
-            $this->saveStore();
-        }
+            if ($count > 0) {
+                $this->saveStore();
+            }
 
-        return $count;
+            return $count;
+        });
     }
 }

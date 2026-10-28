@@ -25,9 +25,11 @@ export GNUPGHOME="${KEY_CONFIG_DIR}"
 # can be used in non-interactive (no TTY) contexts like Docker containers.
 # Without this, gpg will fail with "Inappropriate ioctl for device" when
 # trying to prompt for a passphrase via the agent.
-mkdir -p ~/.gnupg
-echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
-printf "pinentry-mode loopback\n" >> ~/.gnupg/gpg.conf
+# Configure gpg-agent for loopback pinentry in the GNUPGHOME keyring dir.
+# Written to KEY_CONFIG_DIR (not ~/.gnupg) since GNUPGHOME is set above and
+# the agent reads gpg-agent.conf from the GNUPGHOME directory.
+echo "allow-loopback-pinentry" > "${KEY_CONFIG_DIR}/gpg-agent.conf"
+chmod 600 "${KEY_CONFIG_DIR}/gpg-agent.conf"
 # Restart the agent to pick up the new config
 gpgconf --kill gpg-agent 2>/dev/null || true
 sleep 1

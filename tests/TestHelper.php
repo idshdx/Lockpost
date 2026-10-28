@@ -32,6 +32,26 @@ class TestHelper
         chmod($keyConfigDir . '/pubring.kbx', 0600);
         chmod($keyConfigDir . '/trustdb.gpg', 0600);
 
+        // Write gpg.conf with loopback pinentry so GPG can read the passphrase
+        // from the gnupg PHP extension call (addsignkey) instead of trying to
+        // launch a GUI/CLI pinentry prompt that blocks in non-interactive tests.
+        file_put_contents($keyConfigDir . '/gpg.conf', implode("\n", [
+            'use-agent',
+            'pinentry-mode loopback',
+            'no-emit-version',
+            'no-comments',
+            'export-options export-minimal',
+        ]) . "\n");
+        chmod($keyConfigDir . '/gpg.conf', 0600);
+
+        // Write gpg-agent.conf with allow-loopback-pinentry so the GPG agent
+        // accepts passphrases from the gnupg PHP extension in non-interactive
+        // test contexts. Without this, GPG 2.x's agent fails with "no passphrase
+        // set" because it tries to launch a pinentry prompt that cannot work
+        // in a headless/container environment.
+        file_put_contents($keyConfigDir . '/gpg-agent.conf', "allow-loopback-pinentry\n");
+        chmod($keyConfigDir . '/gpg-agent.conf', 0600);
+
         return $testPgpDir;
     }
 

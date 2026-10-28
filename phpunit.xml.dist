@@ -15,11 +15,16 @@
         <env name="APP_ENV" value="test"/>
         <env name="APP_DEBUG" value="1"/>
         <env name="SESSION_AUTO_START" value="false"/>
-        <!-- Ensure test env vars are always set regardless of container env_file overrides -->
+        <!-- Ensure test env vars are always set regardless of container env_file overrides.
+             PGP_PRIVATE_KEY_PASSPHRASE is intentionally omitted: tests/bootstrap.php loads
+             .env via Dotenv::bootEnv(), so tests use the passphrase that matches the actual
+             deployed key. See PgpSigningServiceTest::setUp(). -->
         <env name="APP_SECRET" value="test-secret-32-chars-long!!"/>
         <env name="APP_MAIL_FROM" value="noreply@example.com"/>
-        <env name="PGP_PRIVATE_KEY_PASSPHRASE" value="your-secure-passphrase"/>
         <env name="MAILER_DSN" value="smtp://mailhog:1025"/>
+        <!-- Tests generate tokens directly without registering them in the
+             state store; use stateless mode so validateToken() always returns true -->
+        <env name="APP_TOKEN_STATEFUL" value="0"/>
     </php>
 
     <testsuites>

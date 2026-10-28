@@ -35,6 +35,7 @@
               data-controller="verify"
               data-action="submit->verify#verify"
               novalidate>
+            {{ form_widget(form._token) }}
 
             <div class="mb-3">
                 <label for="signed-message" class="form-label fw-semibold">
@@ -45,8 +46,8 @@
                           id="signed-message"
                           name="verify_signature_form[signed_message]"
                           rows="10"
-                          placeholder="-----BEGIN PGP SIGNED MESSAGE-----&#10;Hash: SHA512&#10;&#10;...signed content...&#10;&#10;-----BEGIN PGP SIGNATURE-----&#10;...&#10;-----END PGP SIGNATURE-----\"
-                          data-verify-target=\"signedMessage\"></textarea>
+                          placeholder="-----BEGIN PGP SIGNED MESSAGE-----&#10;Hash: SHA512&#10;&#10;...signed content...&#10;&#10;-----BEGIN PGP SIGNATURE-----&#10;...&#10;-----END PGP SIGNATURE-----"
+                          data-verify-target="signedMessage"></textarea>
             </div>
 
             <div class="mb-3">
@@ -58,7 +59,7 @@
                           id="public-key"
                           name="verify_signature_form[public_key]"
                           rows="6"
-                          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;...\"
+                          placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#10;..."
                           data-verify-target="publicKey">{{ serverPublicKey }}</textarea>
             </div>
 

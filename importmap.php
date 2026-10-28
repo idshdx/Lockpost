@@ -23,6 +23,6 @@ return [
         'path' => './vendor/symfony/stimulus-bundle/assets/dist/loader.js',
     ],
     'openpgp' => [
-        'version' => '6.3.1',
+        'version' => '6.3.2',
     ],
 ];

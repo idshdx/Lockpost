@@ -20,7 +20,19 @@ class MockHttpClient implements HttpClientInterface
 {
     // Valid-looking PGP public key block with test@example.com UID so that
     // PgpKeyService::keyHasEmailUid() matches the recipient email used in UI tests.
-    private const FAKE_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nVersion: GnuPG v2\n\nmQENBFakeKeyBQCBfakedata==\n=fake\nuid           Test User <test@example.com>\n-----END PGP PUBLIC KEY BLOCK-----\n";
+    private const FAKE_KEY = "-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mDMEat+qiRYJKwYBBAHaRw8BAQdA74GzTLwVRIazGuOSdQPjUzIcgD5zRJdS6Eud
+1MXM+ri0HFRlc3QgVXNlciA8dGVzdEBleGFtcGxlLmNvbT6IkAQTFgoAOBYhBGZz
+4CN4D3B+y25YNDAIkbjhLypNBQJq36qJAhsDBQsJCAcCBhUKCQgLAgQWAgMBAh4B
+AheAAAoJEDAIkbjhLypN4dEBAPGomFX+DkJAM6KRh3bG5LJjbsY8bZDsLEnKGjch
+d3H+AQC3SqrzC8LUsOzfKO3Fz1Gyh8PkQ3GqLPVrb2LsZzSjB7g4BGrfqokSCisG
+AQQBl1UBBQEBB0Df3pd2XKBPmx6y78pFMwujpoKj2J1cOyMuLxcoJdexaAMBCAeI
+eAQYFgoAIBYhBGZz4CN4D3B+y25YNDAIkbjhLypNBQJq36qJAhsMAAoJEDAIkbjh
+LypNC2oBAJv4RxXE93y/2K4rzIQLZ3rSVX9HjId03G1mi98oEo/KAQCsxm78zGd1
+T6mLtspVkvTS1PJ5UTzWYF/9Xw3xWq1yDw==
+=IAHS
+-----END PGP PUBLIC KEY BLOCK-----";
 
     private SymfonyMockHttpClient $inner;
 

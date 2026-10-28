@@ -93,6 +93,9 @@ class MessageController extends AbstractController
     public function submitMessage(Request $request, ValidatorInterface $validator): Response
     {
         try {
+            // $data is populated by reference with the validated DTO; initialise
+            // it so the out-parameter is explicit rather than an undefined variable.
+            $data = null;
             $validationError = $this->validateAndResolveSubmission($request, $data, $validator);
             if ($validationError !== null) {
                 return $validationError;
@@ -275,14 +278,25 @@ class MessageController extends AbstractController
 
     /**
      * Validates the token and returns the recipient email, or null on failure.
+     *
+     * Enforces BOTH the cryptographic link validation and, in stateful mode, the
+     * token state (revocation / one-time-use). Checking state here — and not only
+     * on the GET page — prevents a revoked or exhausted token from sending mail by
+     * posting directly to /message/submit.
      */
     private function resolveRecipient(string $token): ?string
     {
         try {
-            return $this->linkService->validateLink($token);
+            $email = $this->linkService->validateLink($token);
         } catch (AppException) {
             return null;
         }
+
+        if (!$this->tokenStateService->validateToken($token)) {
+            return null;
+        }
+
+        return $email;
     }
 
     /**

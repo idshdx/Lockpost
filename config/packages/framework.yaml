@@ -4,6 +4,7 @@ framework:
     enabled: true
     handler_id: null
     cookie_samesite: lax
+    save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
   csrf_protection:
     enabled: true
   rate_limiter:
@@ -28,3 +29,9 @@ framework:
       policy: fixed_window
       limit: 3
       interval: '1 hour'
+    # Signature verification spawns a temporary GNUPGHOME and runs two gpg
+    # processes per request, so cap it per IP to prevent CPU exhaustion.
+    verify_signature:
+      policy: fixed_window
+      limit: 10
+      interval: '1 minute'

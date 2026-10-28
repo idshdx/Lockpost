@@ -52,7 +52,7 @@ server {
         fastcgi_param PATH_INFO       $fastcgi_path_info;
         fastcgi_param PATH_TRANSLATED $document_root$fastcgi_path_info;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        fastcgi_param APP_ENV production;
+        fastcgi_param APP_ENV prod;
 
         # FastCGI timeouts
         fastcgi_connect_timeout 120;
@@ -77,20 +77,24 @@ server {
         return 204;
     }
 
+    # NOTE ON NGINX HEADER INHERITANCE:
+    # In NGINX, if any 'add_header' directive is defined inside a child location block,
+    # ALL 'add_header' directives from the parent server block are discarded.
+    # To ensure security headers (CSP, HSTS, X-Frame-Options, etc.) are never dropped,
+    # do NOT define 'add_header' inside location blocks unless repeating all security headers.
+
     # Prevent token strings from leaking into access logs
     location ~ ^/submit/ {
         access_log off;
-        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
         try_files $uri $uri/ /index.php?_url=$uri&$args;
     }
     location ~ ^/message/submit {
         access_log off;
-        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
         try_files $uri $uri/ /index.php?_url=$uri&$args;
     }
     # Prevent caching of the verify page (contains server public key)
     location = /verify {
-        add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0";
+        try_files $uri $uri/ /index.php?_url=$uri&$args;
     }
 
     location /nginx_status {

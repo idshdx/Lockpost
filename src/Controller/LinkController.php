@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Exception\AppException;
 use App\Form\EmailFormType;
-use App\Service\LinkGenerationRateLimiter;
 use App\Service\TokenLinkService;
 use App\Service\TokenStateService;
 use App\Service\PgpKeyService;
@@ -15,6 +14,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Handles link generation: the homepage form and the token link display page.
@@ -29,6 +30,7 @@ class LinkController extends AbstractController
         private readonly RateLimiterFactory $linkGenerationLimiter,
         #[Autowire(service: 'limiter.link_generation_failed')]
         private readonly RateLimiterFactory $linkGenerationFailedLimiter,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -54,7 +56,16 @@ class LinkController extends AbstractController
                     return $result;
                 }
             } catch (Exception $e) {
-                return $this->redirectToRoute('app_home');
+                // generateLinkResponse() already converts AppException into a
+                // flash message, so anything reaching here is unexpected: a
+                // token-state write failure, a keyserver client error, or a
+                // template error. It must not silently bounce the user back to
+                // a blank form — log it and tell them to retry.
+                $this->addFlash('danger', 'Something went wrong while generating your link. Please try again.');
+                $this->logger->error('Link generation failed: {message}', [
+                    'message' => $e->getMessage(),
+                    'exception' => $e::class,
+                ]);
             }
         }
 
@@ -84,8 +95,16 @@ class LinkController extends AbstractController
         try {
             $keyResult = $this->pgpKeyService->getPgpKeyResult($email);
         } catch (AppException) {
+            // Track and enforce failed lookups so the "no key" path cannot be
+            // used to probe unlimited email addresses (3 failures/hour/IP).
             $failedLimiter = $this->linkGenerationFailedLimiter->create($ipKey);
-            $failedLimiter->consume();
+            $failedResult = $failedLimiter->consume();
+
+            if (!$failedResult->isAccepted()) {
+                $retryAfter = max(1, $failedResult->getRetryAfter()->getTimestamp() - time());
+                $this->addFlash('danger', "Too many failed key lookups. Please try again in {$retryAfter} seconds.");
+                return null;
+            }
 
             $servers = implode("\n", array_map(
                 fn(string $host) => "https://$host",
@@ -101,12 +120,17 @@ class LinkController extends AbstractController
         $expiration = time() + $this->linkService->getExpirationPeriod();
         $this->tokenStateService->registerToken($token, $expiration);
 
-        return $this->render('default/link.html.twig', [
+        $response = $this->render('default/link.html.twig', [
             'token' => $token,
             'keyFingerprint' => $keyResult->fingerprint,
             'keySource' => $keyResult->source,
             'keyEmails' => $keyResult->emails,
             'expirationDays' => (int) ceil($this->linkService->getExpirationPeriod() / 86400),
         ]);
+        // Prevent caching of pages containing generated tokens.
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 }

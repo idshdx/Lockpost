@@ -11,27 +11,21 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 class PgpKeyServiceTrustTest extends TestCase
 {
-    private const VALID_KEY_BODY = "-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
+    /**
+     * Loads a real, gpg-generated armored key from tests/Fixtures.
+     *
+     * Real keys are used (rather than synthetic armor) because the service now
+     * decodes the base64 body and reads the actual UID packets, so a plaintext
+     * fixture would no longer exercise the real matching path.
+     */
+    private function fixture(string $name): string
+    {
+        $path = __DIR__ . '/../Fixtures/' . $name;
+        $contents = file_get_contents($path);
+        $this->assertNotFalse($contents, "Missing fixture: $path");
 
-mQENBF2h+2IBCACnJ4examplefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefake+2
------END PGP PUBLIC KEY BLOCK-----";
-
-    private const VALID_KEY_BODY_WITH_EMAIL = "-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
-
-mQENBF2h+2IBCACnJ4examplefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefake+2
-
-uid           Test User <user@example.com>
------END PGP PUBLIC KEY BLOCK-----";
-
-    private const VALID_KEY_BODY_DIFFERENT_EMAIL = "-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v2
-
-mQENBF2h+2IBCACnJ4examplefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefakefake+2
-
-uid           Other Person <other@example.com>
------END PGP PUBLIC KEY BLOCK-----";
+        return $contents;
+    }
 
     private function makeService(array $responses): PgpKeyService
     {
@@ -45,7 +39,7 @@ uid           Other Person <other@example.com>
 
     private function validKeyWithMatchingEmail(): MockResponse
     {
-        return new MockResponse(self::VALID_KEY_BODY_WITH_EMAIL, ['http_code' => 200]);
+        return new MockResponse($this->fixture('key_user.asc'), ['http_code' => 200]);
     }
 
     // --- UID verification (key trust) ---
@@ -59,16 +53,17 @@ uid           Other Person <other@example.com>
         // First server returns a key for a DIFFERENT email
         // Second server returns a key for the correct email
         $service = $this->makeService([
-            new MockResponse(self::VALID_KEY_BODY_DIFFERENT_EMAIL, ['http_code' => 200]),
+            new MockResponse($this->fixture('key_other.asc'), ['http_code' => 200]),
             $this->validKeyWithMatchingEmail(),
             $this->notFound(),
         ]);
 
         $key = $service->getPublicKeyByEmail('user@example.com');
 
+        // The mismatched key from the first server must be skipped and the
+        // matching key from the second server returned unchanged.
         $this->assertStringContainsString('BEGIN PGP PUBLIC KEY BLOCK', $key);
-        $this->assertStringContainsString('user@example.com', $key);
-        $this->assertStringNotContainsString('other@example.com', $key);
+        $this->assertSame(trim($this->fixture('key_user.asc')), $key);
     }
 
     /**
@@ -78,7 +73,7 @@ uid           Other Person <other@example.com>
     public function testGetPublicKeyByEmailThrowsWhenOnlyMismatchedKeysReturned(): void
     {
         $service = $this->makeService([
-            new MockResponse(self::VALID_KEY_BODY_DIFFERENT_EMAIL, ['http_code' => 200]),
+            new MockResponse($this->fixture('key_other.asc'), ['http_code' => 200]),
             $this->notFound(),
             $this->notFound(),
         ]);
@@ -89,12 +84,58 @@ uid           Other Person <other@example.com>
     }
 
     /**
+     * Regression test for the key-lookup bug: an email must be matched from the
+     * key's actual UID packet, not from keyserver-added armor metadata.
+     *
+     * keys.openpgp.org adds a "Comment: Name <email>" header, but
+     * keyserver.ubuntu.com does not (it emits "Comment: Hostname:"). A regex over
+     * the armor text therefore only ever matched openpgp.org results. The real
+     * fixtures below carry no Comment header, so this only passes when the UID
+     * packet is genuinely parsed.
+     */
+    public function testEmailIsMatchedFromUidPacketWithoutArmorCommentHeader(): void
+    {
+        // key_other.asc has no armor Comment header and no plaintext email —
+        // the address lives only inside the base64-encoded UID packet.
+        $armor = $this->fixture('key_other.asc');
+        $this->assertStringNotContainsString('Comment:', $armor);
+        $this->assertStringNotContainsString('other@example.com', $armor);
+
+        $service = $this->makeService([
+            new MockResponse($armor, ['http_code' => 200]),
+            $this->notFound(),
+            $this->notFound(),
+        ]);
+
+        $result = $service->getPgpKeyResult('other@example.com');
+
+        $this->assertContains('other@example.com', $result->emails);
+    }
+
+    /**
+     * A key whose UID carries no email address at all must never match an
+     * email search, even though the key itself is valid and decodable.
+     */
+    public function testKeyWithNoEmailUidIsRejected(): void
+    {
+        // key_noemail.asc has the UID "No Email UID" — valid packet, no address.
+        $service = $this->makeService([
+            new MockResponse($this->fixture('key_noemail.asc'), ['http_code' => 200]),
+            $this->notFound(),
+            $this->notFound(),
+        ]);
+
+        $this->expectException(AppException::class);
+        $service->getPublicKeyByEmail('nobody@example.com');
+    }
+
+    /**
      * verifyPublicKeyExists returns true only when a key with matching UID is found.
      */
     public function testVerifyPublicKeyExistsReturnsFalseForMismatchedUid(): void
     {
         $service = $this->makeService([
-            new MockResponse(self::VALID_KEY_BODY_DIFFERENT_EMAIL, ['http_code' => 200]),
+            new MockResponse($this->fixture('key_other.asc'), ['http_code' => 200]),
             $this->notFound(),
             $this->notFound(),
         ]);
@@ -174,7 +215,7 @@ uid           Other Person <other@example.com>
     public function testGetPgpKeyResultTracksCorrectSourceAfterMismatch(): void
     {
         $service = $this->makeService([
-            new MockResponse(self::VALID_KEY_BODY_DIFFERENT_EMAIL, ['http_code' => 200]),
+            new MockResponse($this->fixture('key_other.asc'), ['http_code' => 200]),
             $this->validKeyWithMatchingEmail(),
             $this->notFound(),
         ]);
@@ -208,11 +249,15 @@ uid           Other Person <other@example.com>
 
     /**
      * Multiple key blocks in a single response should be handled
-     * deterministically — the first key with a matching UID wins.
+     * deterministically — every block is scanned and the first one with a
+     * matching UID wins. Keyservers return one block per matching key.
      */
     public function testGetPublicKeyByEmailHandlesMultipleKeyBlocksDeterministically(): void
     {
-        $bodyWithMultipleKeys = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Other Person <other@example.com>\n-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Test User <user@example.com>\n-----END PGP PUBLIC KEY BLOCK-----\n-----END PGP PUBLIC KEY BLOCK-----";
+        // Two complete, real key blocks concatenated: a non-matching key first,
+        // the matching key second. The scan must find the matching one.
+        $bodyWithMultipleKeys = trim($this->fixture('key_other.asc')) . "\n"
+            . trim($this->fixture('key_user.asc'));
 
         $service = $this->makeService([
             new MockResponse($bodyWithMultipleKeys, ['http_code' => 200]),
@@ -224,5 +269,8 @@ uid           Other Person <other@example.com>
 
         $this->assertInstanceOf(PgpKeyResult::class, $result);
         $this->assertContains('user@example.com', $result->emails);
+        // The first block (other@example.com) must be skipped in favour of the
+        // matching block, so its UID must not leak into the result.
+        $this->assertNotContains('other@example.com', $result->emails);
     }
 }

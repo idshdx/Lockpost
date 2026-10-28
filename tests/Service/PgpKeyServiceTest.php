@@ -10,7 +10,21 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 
 class PgpKeyServiceTest extends TestCase
 {
-    private const VALID_KEY_BODY = "-----BEGIN PGP PUBLIC KEY BLOCK-----\nuid           Test User <user@example.com>\n-----END PGP PUBLIC KEY BLOCK-----";
+    /**
+     * Loads a real, gpg-generated armored key from tests/Fixtures.
+     *
+     * Real keys are used (rather than synthetic armor) because the service now
+     * decodes the base64 body and reads the actual UID packets, so a plaintext
+     * fixture would no longer exercise the real matching path.
+     */
+    private function fixture(string $name): string
+    {
+        $path = __DIR__ . '/../Fixtures/' . $name;
+        $contents = file_get_contents($path);
+        $this->assertNotFalse($contents, "Missing fixture: $path");
+
+        return $contents;
+    }
 
     private function makeService(array $responses): PgpKeyService
     {
@@ -27,7 +41,7 @@ class PgpKeyServiceTest extends TestCase
 
     private function validKey(): MockResponse
     {
-        return new MockResponse(self::VALID_KEY_BODY, ['http_code' => 200]);
+        return new MockResponse($this->fixture('key_user.asc'), ['http_code' => 200]);
     }
 
     // --- verifyPublicKeyExists ---

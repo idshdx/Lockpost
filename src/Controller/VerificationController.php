@@ -6,9 +6,11 @@ use App\Service\PgpSigningService;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
@@ -20,6 +22,8 @@ class VerificationController extends AbstractController
     public function __construct(
         private readonly PgpSigningService $pgpSigningService,
         private readonly LoggerInterface $logger,
+        #[Autowire(service: 'limiter.verify_signature')]
+        private readonly RateLimiterFactory $verifySignatureLimiter,
     ) {
     }
 
@@ -33,8 +37,25 @@ class VerificationController extends AbstractController
     #[Route('/verify', name: 'app_verify')]
     public function verifySignaturePage(): Response
     {
+        try {
+            $serverPublicKey = $this->pgpSigningService->getServerPublicKey();
+        } catch (Exception $e) {
+            // A missing/unreadable signing key must not 500 the whole page —
+            // log it and let the form render without the key preview.
+            $this->logger->error('Could not load server public key: {message}', [
+                'message' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+            $serverPublicKey = '';
+        }
+
+        $form = $this->createForm(\App\Form\PgpVerifySignatureFormType::class, null, [
+            'default_public_key' => $serverPublicKey,
+        ]);
+
         $response = $this->render('default/verify.html.twig', [
-            'serverPublicKey' => $this->pgpSigningService->getServerPublicKey(),
+            'serverPublicKey' => $serverPublicKey,
+            'form' => $form->createView(),
         ]);
         // Prevent caching of the verify page (contains server public key).
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -52,6 +73,15 @@ class VerificationController extends AbstractController
     #[Route('/verify/signature', name: 'app_verify_signature', methods: ['POST'])]
     public function verifyIsValidSignature(Request $request): Response
     {
+        // Verification spawns gpg processes, so rate limit before doing any work.
+        $ipKey = $request->getClientIp() ?? 'unknown_ip';
+        $limitResult = $this->verifySignatureLimiter->create($ipKey)->consume();
+        if (!$limitResult->isAccepted()) {
+            $retryAfter = max(1, $limitResult->getRetryAfter()->getTimestamp() - time());
+            $this->addFlash('danger', "Too many verification requests. Please try again in {$retryAfter} seconds.");
+            return $this->redirectToRoute('app_verify');
+        }
+
         $form = $this->createForm(\App\Form\PgpVerifySignatureFormType::class);
         $form->handleRequest($request);
 

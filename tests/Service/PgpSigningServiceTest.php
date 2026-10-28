@@ -18,7 +18,20 @@ class PgpSigningServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->testPgpDir = TestHelper::setupTestPgpDirectory();
-        $this->testPassphrase = 'your-secure-passphrase';
+        // Read the passphrase directly from .env using Symfony's Dotenv parser.
+        // bootEnv() in tests/bootstrap.php may not call putenv() in all CLI
+        // contexts, so we parse the .env file directly with Dotenv::parse()
+        // (which correctly handles comments, shell syntax, and ${VAR} refs
+        // that parse_ini_file() cannot). Falls back to 'your-secure-passphrase'
+        // when .env is absent (local dev with a no-env-var key).
+        $envFile = dirname(__DIR__, 2) . '/.env';
+        if (is_file($envFile)) {
+            $dotenv = new \Symfony\Component\Dotenv\Dotenv();
+            $envVars = $dotenv->parse((string) file_get_contents($envFile), false);
+            $this->testPassphrase = ($envVars['PGP_PRIVATE_KEY_PASSPHRASE'] ?? '') ?: 'your-secure-passphrase';
+        } else {
+            $this->testPassphrase = 'your-secure-passphrase';
+        }
 
         $destPrivate = $this->testPgpDir . '/private.key';
         $destPublic = $this->testPgpDir . '/public.key';

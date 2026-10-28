@@ -1,0 +1,12 @@
+framework:
+    cache:
+        # Use an in-memory cache for the test environment so cache-backed state
+        # resets between test runs instead of leaking via the filesystem and
+        # causing order-dependent failures like spurious 429s.
+        app: cache.adapter.array
+        pools:
+            # The rate limiter stores its counters in this dedicated pool (not
+            # cache.app). Back it with the array adapter too so rate-limit state
+            # does not persist across test runs.
+            cache.rate_limiter:
+                adapter: cache.adapter.array
